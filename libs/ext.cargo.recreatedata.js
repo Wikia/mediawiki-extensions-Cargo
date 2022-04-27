@@ -12,14 +12,12 @@
 
 	var recreateData = new cargo.recreateData();
 
-	var dataDiv = $("div#recreateDataData");
-	var apiURL = dataDiv.attr("apiurl");
-	var cargoScriptPath = dataDiv.attr("cargoscriptpath");
-	var tableName = dataDiv.attr("tablename");
-	var isDeclared = dataDiv.attr("isdeclared");
-	var viewTableURL = dataDiv.attr("viewtableurl");
+	var cargoScriptPath = mw.config.get( 'cargoScriptPath' );
+	var tableName = mw.config.get( 'cargoTableName' );
+	var isDeclared = mw.config.get( 'cargoIsDeclared' );
+	var viewTableURL = mw.config.get( 'cargoViewTableUrl' );
 	var createReplacement = false;
-	var templateData = jQuery.parseJSON( dataDiv.html() );
+	var templateData = mw.config.get( 'cargoTemplateData' );
 
 	var numTotalPages = 0;
 	var numTotalPagesHandled = 0;
@@ -45,18 +43,17 @@
 			progressImage = "<progress value=\"" + remainingPixels + "\" max=\"100\"></progress>";
 		}
 		$("#recreateDataProgress").html( "<p>" + progressImage + "</p>" );
-		var queryStringData = {
-			action: "cargorecreatedata",
-			table: tableName,
-			template: curTemplate.name,
-			offset: numPagesHandled
-		};
-		if ( replaceOldRows ) {
-			queryStringData.replaceOldRows = true;
-		}
-		$.get(
-			apiURL,
-			queryStringData
+		var api = new mw.Api();
+		api.postWithToken(
+			'csrf',
+			{
+				action: "cargorecreatedata",
+				table: tableName,
+				template: curTemplate.name,
+				offset: numPagesHandled,
+				formatversion: 2,
+				replaceOldRows: replaceOldRows
+			}
 		)
 		.done(function( msg ) {
 			var newNumPagesHandled = Math.min( numPagesHandled + 500, curTemplate.numPages );
@@ -86,14 +83,16 @@
 
 		if ( isDeclared ) {
 			$("#recreateTableProgress").html( "<img src=\"" + cargoScriptPath + "/resources/images/loading.gif\" />" );
-			var queryStringData = {
-				action: "cargorecreatetables",
-				template: templateData[0].name,
-			};
-			if ( createReplacement ) {
-				queryStringData.createReplacement = true;
-			}
-			$.get( apiURL, queryStringData )
+			var api = new mw.Api();
+			api.postWithToken(
+				'csrf',
+				{
+					action: "cargorecreatetables",
+					template: templateData[0].name,
+					formatversion: 2,
+					createReplacement: createReplacement
+				}
+			)
 			.done(function( msg ) {
 				var displayMsg = createReplacement ? 'cargo-recreatedata-replacementcreated' : 'cargo-recreatedata-tablecreated';
 				$("#recreateTableProgress").html( "<p>" + mw.msg( displayMsg, tableName ) + "</p>" );

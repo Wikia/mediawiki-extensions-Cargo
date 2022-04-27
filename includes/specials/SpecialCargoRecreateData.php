@@ -90,25 +90,14 @@ class SpecialCargoRecreateData extends UnlistedSpecialPage {
 		$ct = SpecialPage::getTitleFor( 'CargoTables' );
 		$viewTableURL = $ct->getInternalURL() . '/' . $this->mTableName;
 
-		// Store all the necesssary data on the page.
-		$text = Html::element( 'div', [
-				'hidden' => 'true',
-				'id' => 'recreateDataData',
-				// These two variables are not data-
-				// specific, but this seemed like the
-				// easiest way to pass them over without
-				// interfering with any other pages.
-				// (Is this the best way to get the
-				// API URL?)
-				'apiurl' => $wgScriptPath . "/api.php",
-				'cargoscriptpath' => $cgScriptPath,
-				'tablename' => $this->mTableName,
-				'isdeclared' => $this->mIsDeclared,
-				'viewtableurl' => $viewTableURL
-			], json_encode( $templateData ) );
+		$out->addJsConfigVars( 'cargoScriptPath', $cgScriptPath );
+		$out->addJsConfigVars( 'cargoTableName', $this->mTableName );
+		$out->addJsConfigVars( 'cargoIsDeclared', $this->mIsDeclared );
+		$out->addJsConfigVars( 'cargoViewTableUrl', $viewTableURL );
+		$out->addJsConfigVars( 'cargoTemplateData', $templateData );
 
 		// Simple form.
-		$text .= '<div id="recreateDataCanvas">' . "\n";
+		$text = '<div id="recreateDataCanvas">' . "\n";
 		if ( $tableExists ) {
 			// Possibly disable checkbox, to avoid problems if the
 			// DB hasn't been updated for version 1.5+.
@@ -160,5 +149,4 @@ class SpecialCargoRecreateData extends UnlistedSpecialPage {
 		$row = $dbw->fetchRow( $res );
 		return intval( $row['total'] );
 	}
-
 }

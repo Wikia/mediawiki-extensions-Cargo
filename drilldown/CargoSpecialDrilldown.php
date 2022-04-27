@@ -26,6 +26,8 @@ class CargoSpecialDrilldown extends IncludableSpecialPage {
 
 		$this->checkPermissions();
 
+		$this->checkPermissions();
+
 		$request = $this->getRequest();
 		$out = $this->getOutput();
 
