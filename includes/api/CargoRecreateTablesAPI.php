@@ -68,4 +68,11 @@ class CargoRecreateTablesAPI extends ApiBase {
 		];
 	}
 
+	public function mustBePosted() {
+		return true;
+	}
+
+	public function needsToken() {
+		return 'csrf';
+	}
 }
