@@ -26,7 +26,7 @@ class CargoUtils {
 		global $wgCargoDBserver, $wgCargoDBname, $wgCargoDBuser, $wgCargoDBpassword, $wgCargoDBprefix, $wgCargoDBtype;
 
 		$lb = MediaWikiServices::getInstance()->getDBLoadBalancer();
-		$dbr = $lb->getConnectionRef( DB_REPLICA );
+		$dbr = $lb->getConnectionRef( DB_PRIMARY );
 		$server = $dbr->getServer();
 		$name = $dbr->getDBname();
 		$type = $dbr->getType();
@@ -38,7 +38,7 @@ class CargoUtils {
 		$dbServer = $wgCargoDBserver === null ? $server : $wgCargoDBserver;
 		$dbName = $wgCargoDBname === null ? $name : $wgCargoDBname;
 
-		// Server (host), db name, and db type can be retrieved from $dbr via
+		// Server (host), db name, and db type can be retrieved from $dbw via
 		// public methods, but username and password cannot. If these values are
 		// not set for Cargo, get them from either $wgDBservers or wgDBuser and
 		// $wgDBpassword, depending on whether or not there are multiple DB servers.
@@ -69,6 +69,9 @@ class CargoUtils {
 			'password' => $dbPassword,
 			'dbname' => $dbName,
 			'tablePrefix' => $dbTablePrefix,
+			// MySQL >= 8.0.22 rejects using binary strings in regular expression functions
+			// such as REGEXP_LIKE(), heavily used across Cargo, so force UTF-8 client charset here.
+			'utf8Mode' => true,
 		];
 
 		if ( $type === 'sqlite' ) {
@@ -648,9 +651,9 @@ class CargoUtils {
 			$mainTableAlreadyExists = self::tableFullyExists( $tableNames[0] );
 			foreach ( $tableNames as $curTable ) {
 				try {
-					$cdb->begin();
+					$cdb->startAtomic( __METHOD__ );
 					$cdb->dropTable( $curTable );
-					$cdb->commit();
+					$cdb->endAtomic( __METHOD__ );
 				} catch ( Exception $e ) {
 					throw new MWException( "Caught exception ($e) while trying to drop Cargo table. "
 					. "Please make sure that your database user account has the DROP permission." );
@@ -779,7 +782,8 @@ class CargoUtils {
 	}
 
 	public static function createCargoTableOrTables( $cdb, $dbw, $tableName, $tableSchema, $tableSchemaString, $templatePageID ) {
-		$cdb->begin();
+		$cdb->startAtomic( __METHOD__ );
+
 		$fieldsInMainTable = [
 			'_ID' => 'Integer',
 			'_pageName' => 'String',
@@ -883,7 +887,7 @@ class CargoUtils {
 		}
 
 		// End transaction and apply DB changes.
-		$cdb->commit();
+		$cdb->endAtomic( __METHOD__ );
 
 		// Finally, store all the info in the cargo_tables table.
 		$dbw->insert( 'cargo_tables', [
@@ -922,6 +926,7 @@ class CargoUtils {
 				$sqlType = self::fieldTypeToSQLType( $fieldType, $dbType );
 				if ( $fieldName == '_ID' ) {
 					$fieldOptionsText .= ' PRIMARY KEY';
+					$fieldOptionsText .= ' AUTO_INCREMENT';
 				} elseif ( $fieldName == '_rowID' ) {
 					$fieldOptionsText .= ' NOT NULL';
 				}
@@ -943,6 +948,11 @@ class CargoUtils {
 		if ( $wgCargoDBRowFormat != null ) {
 			$createSQL .= " ROW_FORMAT=$wgCargoDBRowFormat";
 		}
+		// Fandom edit: set utf-8 character set for Cargo tables.
+		// Note: this is to bring tables on any dbs created post-UCP in line with those imported
+		// from Gamepedia, since the database default charset is different between those.
+		$createSQL .= " CHARACTER SET utf8 COLLATE utf8_unicode_ci";
+
 		$cdb->query( $createSQL );
 
 		// Add an index for any field that's not of type Text,
@@ -962,6 +972,11 @@ class CargoUtils {
 			// So we just stop indexing after the first 60.
 			if ( count( $indexedFields ) >= 60 ) {
 				break;
+			}
+
+			// _ID is already the PRIMARY KEY
+			if ( $fieldName == '_ID' ) {
+				continue;
 			}
 
 			if ( is_object( $fieldDescOrType ) ) {

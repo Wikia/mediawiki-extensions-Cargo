@@ -154,7 +154,7 @@ class CargoHooks {
 		// Get all the "main" tables that this page is contained in.
 		$dbw = wfGetDB( DB_MASTER );
 		$cdb = CargoUtils::getDB();
-		$cdb->begin();
+		$cdb->startAtomic( __METHOD__ );
 		$cdbPageIDCheck = [ $cdb->addIdentifierQuotes( '_pageID' ) => $pageID ];
 
 		$res = $dbw->select( 'cargo_pages', 'table_name', [ 'page_id' => $pageID ] );
@@ -169,16 +169,18 @@ class CargoHooks {
 			// First, delete from the "field" tables.
 			$fieldTablesValue = $dbw->selectField( 'cargo_tables', 'field_tables', [ 'main_table' => $curMainTable ] );
 			$fieldTableNames = unserialize( $fieldTablesValue );
-			foreach ( $fieldTableNames as $curFieldTable ) {
-				// Thankfully, the MW DB API already provides a
-				// nice method for deleting based on a join.
-				$cdb->deleteJoin(
-					$curFieldTable,
-					$curMainTable,
-					$cdb->addIdentifierQuotes( '_rowID' ),
-					$cdb->addIdentifierQuotes( '_ID' ),
-					$cdbPageIDCheck
-				);
+			if ( is_array( $fieldTableNames ) ) {
+				foreach ( $fieldTableNames as $curFieldTable ) {
+					// Thankfully, the MW DB API already provides a
+					// nice method for deleting based on a join.
+					$cdb->deleteJoin(
+						$curFieldTable,
+						$curMainTable,
+						$cdb->addIdentifierQuotes( '_rowID' ),
+						$cdb->addIdentifierQuotes( '_ID' ),
+						$cdbPageIDCheck
+					);
+				}
 			}
 
 			// Delete from the "files" helper table, if it exists.
@@ -204,7 +206,7 @@ class CargoHooks {
 		CargoBackLinks::managePageDeletion( $pageID );
 
 		// End transaction and apply DB changes.
-		$cdb->commit();
+		$cdb->endAtomic( __METHOD__ );
 	}
 
 	public static function deletePageFromSpecialTable( $pageID, $specialTableName ) {
@@ -367,7 +369,7 @@ class CargoHooks {
 		$newPageNamespace = $newtitle->getNamespace();
 		$dbw = wfGetDB( DB_MASTER );
 		$cdb = CargoUtils::getDB();
-		$cdb->begin();
+		$cdb->startAtomic( __METHOD__ );
 		// We use $oldid, because that's the page ID - $newid is the
 		// ID of the redirect page.
 		$res = $dbw->select( 'cargo_pages', 'table_name', [ 'page_id' => $oldid ] );
@@ -403,7 +405,7 @@ class CargoHooks {
 		}
 
 		// End transaction and apply DB changes.
-		$cdb->commit();
+		$cdb->endAtomic( __METHOD__ );
 
 		// Save data for the original page (now a redirect).
 		if ( $newid != 0 ) {
