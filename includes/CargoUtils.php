@@ -1279,7 +1279,8 @@ class CargoUtils {
 	}
 
 	public static function logTableAction( $actionName, $tableName, User $user ) {
-		$log = new LogPage( 'cargo', false );
+		// CATS-286 Reverting https://github.com/Wikia/mediawiki-extensions-Cargo/commit/048111b5eb2c4ab58854323b96a1718a7fc66b49
+		$log = new LogPage( 'cargo' );
 		$ctPage = self::getSpecialPage( 'CargoTables' );
 		$ctTitle = $ctPage->getPageTitle();
 		if ( $actionName == 'deletetable' ) {
