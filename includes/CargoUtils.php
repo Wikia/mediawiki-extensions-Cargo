@@ -8,6 +8,7 @@
 
 use MediaWiki\Linker\LinkRenderer;
 use MediaWiki\Linker\LinkTarget;
+use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\MediaWikiServices;
 
 class CargoUtils {
@@ -82,7 +83,12 @@ class CargoUtils {
 			$params['port'] = $wgDBport;
 		}
 
-		self::$CargoDB = Database::factory( $wgCargoDBtype, $params );
+		$params['flags'] |= DBO_DEBUG;
+		/** @var Database */
+		$db = Database::factory( $wgCargoDBtype, $params );
+		$logger = LoggerFactory::getInstance( 'DBQuery' );
+		$db->setLogger( $logger );
+		self::$CargoDB = $db;
 		return self::$CargoDB;
 	}
 

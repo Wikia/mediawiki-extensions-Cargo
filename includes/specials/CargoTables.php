@@ -117,7 +117,7 @@ class CargoTables extends IncludableSpecialPage {
 
 		// Then, display a count.
 		$cdb = CargoUtils::getDB();
-		$numRows = $cdb->selectRowCount( $tableName, '*', null, __METHOD__ );
+		$numRows = $cdb->selectRowCount( $tableName, '*', [], __METHOD__ );
 		$numRowsMessage =
 			$this->msg( 'cargo-cargotables-totalrows' )->numParams( $numRows );
 		$out->addWikiTextAsInterface( $numRowsMessage->plain() . "\n" );

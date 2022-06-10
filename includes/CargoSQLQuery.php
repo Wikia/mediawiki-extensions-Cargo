@@ -1584,7 +1584,7 @@ class CargoSQLQuery {
 			$realAliasedFieldNames[$alias] = $fieldName;
 		}
 
-		$res = $this->mCargoDB->select( $this->mAliasedTableNames, $realAliasedFieldNames, $this->mWhereStr, __METHOD__,
+		$res = $this->mCargoDB->select( $this->mAliasedTableNames, $realAliasedFieldNames, $this->mWhereStr ?? [], __METHOD__,
 			$selectOptions, $this->mJoinConds );
 
 		// Is there a more straightforward way of turning query

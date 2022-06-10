@@ -1,4 +1,7 @@
 <?php
+
+use MediaWiki\Logger\LoggerFactory;
+
 /**
  * Class for the #cargo_store function.
  *
@@ -147,6 +150,14 @@ class CargoStore {
 			return;
 		} elseif ( !array_key_exists( 'origin', self::$settings ) ) {
 			wfDebugLog( 'cargo', "CargoStore::run() - skipping; no origin defined.\n" );
+			return;
+		}
+
+		if ( self::$settings['origin'] == 'nope' ) {
+			$logger = LoggerFactory::getInstance( 'Cargo' );
+			$logger->error( "CargoStore::run() - skipping; origin is {origin}.", [
+				'origin' => 'nope',
+			] );
 			return;
 		}
 

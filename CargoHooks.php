@@ -372,6 +372,7 @@ class CargoHooks {
 		// added to remain set.
 		CargoStore::$settings['origin'] = 'page save';
 		CargoUtils::parsePageForStorage( $wikiPage->getTitle(), $content->getNativeData() );
+		CargoStore::$settings['origin'] = 'nope';
 
 		// Also, save data to any relevant "special tables", if they
 		// exist.
@@ -414,6 +415,7 @@ class CargoHooks {
 			$wikiPage->getTitle(),
 			$revisionRecord->getContent( SlotRecord::MAIN )->getNativeData()
 		);
+		CargoStore::$settings['origin'] = 'nope';
 
 		// Also, save data to any relevant "special tables", if they
 		// exist.
