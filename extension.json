@@ -450,8 +450,8 @@
 		"CargoMaxVisibleHierarchyDrilldownValues": 30,
 		"CargoTablesPrioritizeReplacements": false,
 		"CargoLegacyStoreNullAsEmptyString": false,
-		"CargoStoreUseTemplateArgsFallback": true,
-		"CargoLegacyNullLuaFieldsAsEmptyString": false,
+		"CargoStoreUseTemplateArgsFallback": false,
+		"CargoLegacyNullLuaFieldsAsEmptyString": true,
 		"CargoPageDataColumns": [],
 		"CargoFileDataColumns": [],
 		"CargoHideNamespaceName": [
