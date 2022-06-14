@@ -450,6 +450,7 @@
 		"CargoMaxVisibleHierarchyDrilldownValues": 30,
 		"CargoTablesPrioritizeReplacements": false,
 		"CargoLegacyStoreNullAsEmptyString": false,
+		"CargoStoreUseTemplateArgsFallback": true,
 		"CargoPageDataColumns": [],
 		"CargoFileDataColumns": [],
 		"CargoHideNamespaceName": [

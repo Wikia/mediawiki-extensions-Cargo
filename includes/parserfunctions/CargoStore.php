@@ -85,26 +85,35 @@ class CargoStore {
 			// Most likely, this table was never created - just exit.
 			return;
 		}
+		
 		$fieldDescriptions = $tableSchemas[$tableName]->mFieldDescriptions;
 		$fieldNames = array_keys( $fieldDescriptions );
-		foreach ( $fieldNames as $fieldName ) {
-			// Skip it if it's already being handled.
-			if ( array_key_exists( $fieldName, $tableFieldValues ) ) {
-				continue;
-			}
-			// Look for a template parameter with the same name
-			// as this field, both with underscores and with spaces.
-			$curFieldValue = $frame->getArgument( $fieldName );
-			if ( $curFieldValue == null ) {
-				$unescapedFieldName = str_replace( '_', ' ', $fieldName );
-				$curFieldValue = $frame->getArgument( $unescapedFieldName );
-				// For some reason, getArgument() returns false,
-				// and not null, for missing values.
-				if ( $curFieldValue === false && !$GLOBALS["wgCargoLegacyStoreNullAsEmptyString"] ) {
-					$curFieldValue = null;
+
+
+		// Ported from https://gerrit.wikimedia.org/r/c/mediawiki/extensions/Cargo/+/804637
+		if ( $GLOBALS["wgCargoStoreUseTemplateArgsFallback"] ) {
+			// Go through all the fields for this table, setting any that
+			// were not explicitly set in the #cargo_store call.
+			foreach ( $fieldNames as $fieldName ) {
+				// Skip it if it's already being handled.
+				if ( array_key_exists( $fieldName, $tableFieldValues ) ) {
+					continue;
+				}
+				// Look for a template parameter with the same name
+				// as this field, both with underscores and with spaces.
+				$curFieldValue = $frame->getArgument( $fieldName );
+
+				if ( $curFieldValue === false ) {
+					$unescapedFieldName = str_replace( '_', ' ', $fieldName );
+					$curFieldValue = $frame->getArgument( $unescapedFieldName );
+				}
+
+				// We don't want to unintentionally add false values in wrongly typed-fields
+				// in case strict mode is being used
+				if ( $curFieldValue !== false ) {
+					$tableFieldValues[$fieldName] = $curFieldValue;
 				}
 			}
-			$tableFieldValues[$fieldName] = $curFieldValue;
 		}
 
 		$origTableName = $tableName;
