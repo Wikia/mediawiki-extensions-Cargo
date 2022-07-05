@@ -26,7 +26,7 @@ class CargoUtils {
 		global $wgCargoDBserver, $wgCargoDBname, $wgCargoDBuser, $wgCargoDBpassword, $wgCargoDBprefix, $wgCargoDBtype;
 
 		$lb = MediaWikiServices::getInstance()->getDBLoadBalancer();
-		$dbr = $lb->getConnectionRef( DB_REPLICA );
+		$dbr = $lb->getConnectionRef( DB_PRIMARY );
 		$server = $dbr->getServer();
 		$name = $dbr->getDBname();
 		$type = $dbr->getType();
