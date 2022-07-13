@@ -504,14 +504,6 @@ class CargoUtils {
 			$value = "\n" . $value;
 		}
 
-		// Add __NOTOC__ and __NOEDITSECTION__ "behavior switches"
-		// to the beginning of this value, so that, on the off chance
-		// that it contains section headers, a table of contents and
-		// edit links will not appear in the parsed output.
-		// We avoid newlines and extra spaces here (we don't need
-		// them) to not mess up the formatting.
-		$value = "__NOTOC____NOEDITSECTION__$value";
-
 		// Parse it as if it's wikitext. The exact call
 		// depends on whether we're in a special page or not.
 		if ( $parser === null ) {
