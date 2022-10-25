@@ -23,10 +23,12 @@ class CargoUtils {
 		}
 
 		global $wgDBuser, $wgDBpassword, $wgDBprefix, $wgDBservers;
-		global $wgCargoDBserver, $wgCargoDBname, $wgCargoDBuser, $wgCargoDBpassword, $wgCargoDBprefix, $wgCargoDBtype;
+		global $wgCargoDBserver, $wgCargoDBname, $wgCargoDBuser, $wgCargoDBpassword,
+			   $wgCargoDBprefix, $wgCargoDBtype, $wgCargoDBIndex;
 
 		$lb = MediaWikiServices::getInstance()->getDBLoadBalancer();
-		$dbr = $lb->getConnectionRef( DB_PRIMARY );
+		$dbIndex = $wgCargoDBIndex !== null ?: DB_PRIMARY;
+		$dbr = $lb->getConnectionRef( $dbIndex );
 		$server = $dbr->getServer();
 		$name = $dbr->getDBname();
 		$type = $dbr->getType();
