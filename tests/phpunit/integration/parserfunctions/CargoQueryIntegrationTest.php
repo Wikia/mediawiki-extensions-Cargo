@@ -115,7 +115,16 @@ TEXT;
 		$title = Title::makeTitle( NS_TEMPLATE, $tableName );
 		$page = $this->getExistingTestPage( $title );
 
-		$table = CargoIntegrationTestUtils::getCargoTableDeclaration( $tableName, $schema );
+		$declare = "{{#cargo_declare:_table=$tableName\n";
+		foreach ( $schema as $field => $type ) {
+			$declare .= "|$field=$type\n";
+		}
+		$declare .= '}}';
+
+		// Make fields available as template parameters for easier data storage later.
+		$store = "{{#cargo_store:_table=$tableName}}";
+
+		$table = "<noinclude>$declare</noinclude>\n<includeonly>$store</includeonly>";
 
 		$this->editPage( $page, $table );
 
