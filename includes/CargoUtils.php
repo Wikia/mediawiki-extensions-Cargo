@@ -401,8 +401,12 @@ class CargoUtils {
 	 * Deletes text within quotes and raises and exception if a quoted string
 	 * is not closed.
 	 */
-	public static function removeQuotedStrings( $string ) {
-		$noQuotesPattern = '/("|\')([^\\1\\\\]|\\\\.)*?\\1/';
+	public static function removeQuotedStrings( ?string $string ): string {
+		if ( $string === null ) {
+			return '';
+		}
+
+		$noQuotesPattern = '/("|\')([^\\1\\\\]|\\\\.)*?\\1/s';
 		$string = preg_replace( $noQuotesPattern, '', $string );
 		if ( strpos( $string, '"' ) !== false || strpos( $string, "'" ) !== false ) {
 			throw new MWException( "Error: unclosed string literal." );
