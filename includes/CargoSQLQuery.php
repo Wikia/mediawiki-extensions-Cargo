@@ -52,6 +52,11 @@ class CargoSQLQuery {
 			throw new MWException( "At least one table must be specified." );
 		}
 
+		// Needed to avoid various warnings.
+		if ( $whereStr === null ) {
+			$whereStr = '';
+		}
+
 		self::validateValues( $tablesStr, $fieldsStr, $whereStr, $joinOnStr, $groupByStr,
 			$havingStr, $orderByStr, $limitStr, $offsetStr, $allowFieldEscaping );
 
