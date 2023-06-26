@@ -366,7 +366,7 @@ class CargoDeclare {
 			$viewTableMsg = wfMessage( 'cargo-cargotables-viewtablelink' )->parse();
 			$text .= " [[$pageName|$viewTableMsg]].";
 		} else {
-			$text .= "\n\n[".$parser->getTitle()->getFullURL( [ 'action' => 'recreatedata' ] )." ".wfMessage( 'cargo-createdatatable' )->parse()."]";
+			$text .= "\n\n[" . $parser->getTitle()->getFullURL( [ 'action' => 'recreatedata' ] ) . " " . wfMessage( 'cargo-createdatatable' )->parse() . "]";
 		}
 
 		// Also link to the replacement table, if it exists.
