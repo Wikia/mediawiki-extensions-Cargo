@@ -32,30 +32,6 @@ jobs:
           path: mediawiki
           ref: ${{ matrix.mw }}
 
-      - name: Checkout Echo (dependency) extension
-        uses: actions/checkout@v3
-        with:
-          repository: wikimedia/mediawiki-extensions-Echo
-          path: mediawiki/extensions/Echo
-
-      - name: Checkout Flow (implicit dependency) extension
-        uses: actions/checkout@v3
-        with:
-          repository: wikimedia/mediawiki-extensions-Flow
-          path: mediawiki/extensions/Flow
-
-      - name: Checkout MobileFrontend (implicit dependency) extension
-        uses: actions/checkout@v3
-        with:
-          repository: wikimedia/mediawiki-extensions-MobileFrontend
-          path: mediawiki/extensions/MobileFrontend
-
-      - name: Checkout CheckUser (implicit dependency) extension
-        uses: actions/checkout@v3
-        with:
-          repository: wikimedia/mediawiki-extensions-CheckUser
-          path: mediawiki/extensions/CheckUser
-
       - name: Checkout Cargo extension
         uses: actions/checkout@v2
         with:
