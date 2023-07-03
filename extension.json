@@ -167,6 +167,7 @@
 		"CargoTagCloudFormat": "includes/formats/CargoTagCloudFormat.php",
 		"CargoExhibitFormat": "includes/formats/CargoExhibitFormat.php",
 		"CargoBibtexFormat": "includes/formats/CargoBibtexFormat.php",
+		"CargoLinksUpdateHandler": "includes/hooks/CargoLinksUpdateHandler.php",
 		"CargoSearchMySQL": "includes/search/CargoSearchMySQL.php",
 		"CargoPageSchemas": "includes/CargoPageSchemas.php",
 		"CargoAppliedFilter": "drilldown/CargoAppliedFilter.php",
@@ -176,6 +177,9 @@
 		"CargoDrilldownHierarchy": "drilldown/CargoDrilldownHierarchy.php",
 		"CargoSpecialDrilldown": "drilldown/CargoSpecialDrilldown.php",
 		"CargoDrilldownPage": "drilldown/CargoDrilldownPage.php"
+	},
+	"TestAutoloadClasses": {
+		"CargoIntegrationTestUtils": "tests/phpunit/integration/CargoIntegrationTestUtils.php"
 	},
 	"ResourceModules": {
 		"ext.cargo.main": {
@@ -439,11 +443,11 @@
 	"Hooks": {
 		"ParserFirstCallInit": "CargoHooks::registerParserFunctions",
 		"MakeGlobalVariablesScript": "CargoHooks::setGlobalJSVariables",
+		"LinksUpdate": "links-update",
 		"PageSaveComplete": "CargoHooks::onPageSaveComplete",
 		"ApprovedRevsRevisionApproved": "CargoHooks::onARRevisionApproved",
 		"ApprovedRevsRevisionUnapproved": "CargoHooks::onARRevisionUnapproved",
 		"PageMoveComplete": "CargoHooks::onPageMoveComplete",
-		"MultiContentSave": "CargoHooks::onMultiContentSave",
 		"UploadComplete": "CargoHooks::onUploadComplete",
 		"CategoryAfterPageAdded": "CargoHooks::addCategoryToPageData",
 		"CategoryAfterPageRemoved": "CargoHooks::removeCategoryFromPageData",
@@ -462,6 +466,11 @@
 		"PageSchemasRegisterHandlers": "CargoPageSchemas::registerClass",
 		"ResourceLoaderGetConfigVars": "CargoHooks::onResourceLoaderGetConfigVars",
 		"ScribuntoExternalLibraries": "CargoHooks::addLuaLibrary"
+	},
+	"HookHandlers": {
+		"links-update": {
+			"class": "CargoLinksUpdateHandler"
+		}
 	},
 	"config": {
 		"CargoDecimalMark": ".",
