@@ -28,15 +28,6 @@ class CargoStore {
 	public static function run( $parser, $frame, $args ) {
 		// Get page-related information early on, so we can exit
 		// quickly if there's a problem.
-		$title = $parser->getTitle();
-		$pageID = $title->getArticleID();
-		if ( $pageID <= 0 ) {
-			// This will most likely happen if the title is a
-			// "special" page.
-			wfDebugLog( 'cargo', "CargoStore::run() - skipping; not called from a wiki page.\n" );
-			return;
-		}
-
 		$params = [];
 		foreach ( $args as $arg ) {
 			$params[] = trim( $frame->expand( $arg ) );
@@ -112,7 +103,47 @@ class CargoStore {
 			}
 		}
 
-		$origTableName = $tableName;
+		self::storeTable( $parser, $tableName, $tableFieldValues );
+	}
+
+	/**
+	 * Implements cargo_store functionality which is shared among parser function and lua
+	 *
+	 * @param Parser $parser
+	 * @param string $tableName
+	 * @param array $tableFieldValues
+	 */
+	public static function storeTable( $parser, $tableName, $tableFieldValues ) {
+		// Get page-related information early on, so we can exit
+		// quickly if there's a problem.
+		$title = $parser->getTitle();
+		$pageID = $title->getArticleID();
+		if ( $pageID <= 0 ) {
+			// This will most likely happen if the title is a
+			// "special" page.
+			wfDebugLog( 'cargo', "CargoStore::run() - skipping; not called from a wiki page.\n" );
+			return;
+		}
+
+		// This function does actual DB modifications - so only proceed
+		// if this is called via either a page save or a "recreate
+		// data" action for a template that this page calls.
+		if ( count( self::$settings ) == 0 ) {
+			wfDebugLog( 'cargo', "CargoStore::run() - skipping; no settings defined.\n" );
+			return;
+		} elseif ( !array_key_exists( 'origin', self::$settings ) ) {
+			wfDebugLog( 'cargo', "CargoStore::run() - skipping; no origin defined.\n" );
+			return;
+		}
+
+		if ( self::$settings['origin'] == 'template' ) {
+			// It came from a template "recreate data" action -
+			// make sure it passes various criteria.
+			if ( self::$settings['dbTableName'] != $tableName ) {
+				wfDebugLog( 'cargo', "CargoStore::run() - skipping; dbTableName not set.\n" );
+				return;
+			}
+		}
 
 		// Always store data in the replacement table if it exists.
 		$cdb = CargoUtils::getDB();
@@ -142,26 +173,6 @@ class CargoStore {
 			CargoUtils::setParserOutputPageProperty( $parserOutput, 'CargoStorageError', $errors );
 			wfDebugLog( 'cargo', "CargoStore::run() - skipping; storage error encountered.\n" );
 			return;
-		}
-
-		// This function does actual DB modifications - so only proceed
-		// if this is called via either a page save or a "recreate
-		// data" action for a template that this page calls.
-		if ( count( self::$settings ) == 0 ) {
-			wfDebugLog( 'cargo', "CargoStore::run() - skipping; no settings defined.\n" );
-			return;
-		} elseif ( !array_key_exists( 'origin', self::$settings ) ) {
-			wfDebugLog( 'cargo', "CargoStore::run() - skipping; no origin defined.\n" );
-			return;
-		}
-
-		if ( self::$settings['origin'] == 'template' ) {
-			// It came from a template "recreate data" action -
-			// make sure it passes various criteria.
-			if ( self::$settings['dbTableName'] != $origTableName ) {
-				wfDebugLog( 'cargo', "CargoStore::run() - skipping; dbTableName not set.\n" );
-				return;
-			}
 		}
 
 		self::storeAllData( $title, $tableName, $tableFieldValues, $tableSchema );
