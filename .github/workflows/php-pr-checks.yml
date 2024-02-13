@@ -4,14 +4,23 @@ on:
     branches: '**'
 
   push:
-    branches: [ master, MW_1_37, REL1_39 ]
+    branches: [ master, REL1_39 ]
 
 jobs:
+  matrix_prep:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v4
+      - id: set-matrix
+        run: echo "::set-output name=matrix::{\"include\":[{\"php_version\":\"8.0\",\"mw\":\"${{ github.event.pull_request.base.ref || 'master' }}\"}]}"
+
   build:
+    needs: matrix_prep
     strategy:
-      matrix:
-        php_version: ['8.0']
-        mw: ['REL1_39']
+      matrix: ${{fromJson(needs.matrix_prep.outputs.matrix)}}
 
     runs-on: ubuntu-latest
     steps:
@@ -23,32 +32,51 @@ jobs:
           # as this will disable xdebug which slows all processes significantly
           coverage: none
           extensions: ast
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Checkout Mediawiki
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: wikimedia/mediawiki
-          path: mediawiki
           ref: ${{ matrix.mw }}
 
       - name: Checkout Cargo extension
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
-          path: mediawiki/extensions/Cargo
+          path: extensions/Cargo
 
-      - name: Cache Composer packages
+      - name: Cache Cargo composer dependencies
         id: composer-cache
         uses: actions/cache@v3
         with:
           path: vendor
-          key: ${{ runner.os }}-php-v3-${{ hashFiles('**/composer.lock') }}
+          key: ${{ runner.os }}-php-v3-${{ hashFiles('extensions/Cargo/composer.lock') }}
 
-      - name: Install composer dependencies
-        if: steps.composer-cache.outputs.cache-hit != 'true'
-        working-directory: ./mediawiki/extensions/Cargo
+      - name: Install Cargo composer dependencies
+        working-directory: ./extensions/Cargo
         run: composer install --prefer-dist --no-progress
 
-      - name: Run PHPUnit tests
-        working-directory: ./mediawiki/extensions/Cargo
+      - name: Run PHPCS and minus-x
+        working-directory: ./extensions/Cargo
         run: composer test
+
+      - name: Start MySQL
+        run: sudo systemctl start mysql.service
+
+      - name: Install MediaWiki composer dependencies
+        run: composer update --prefer-dist --no-progress
+
+      - name: Install & configure MediaWiki
+        run: |
+          php maintenance/install.php --dbtype mysql --dbuser root --dbpass root --pass TestPassword testwiki TestAdmin
+          echo 'error_reporting( E_ALL | E_STRICT );' >> LocalSettings.php
+          echo 'ini_set( "display_errors", 1 );' >> LocalSettings.php
+          echo '$wgShowExceptionDetails = true;' >> LocalSettings.php
+          echo '$wgShowDBErrorBacktrace = true;' >> LocalSettings.php
+          echo '$wgDevelopmentWarnings = true;' >> LocalSettings.php
+          echo 'wfLoadExtension( "'Cargo'" );' >> LocalSettings.php
+      - name: Run schema changes
+        run: php maintenance/update.php --quick
+
+      - name: Run PHPUnit tests
+        run: php tests/phpunit/phpunit.php extensions/Cargo/tests
