@@ -49,8 +49,8 @@ TEXT;
 		$output = $this->getQueryOutput( $query );
 
 		$this->assertXmlStringEqualsXmlString(
-			'<p><a href="/cargotest/index.php/A_Test" title="A Test">A Test</a>,  '
-			. '<a href="/cargotest/index.php/Lorem_Ipsum" title="Lorem Ipsum">Lorem Ipsum</a></p>',
+			'<p><a href="cargotest/A_Test" title="A Test">A Test</a>,  '
+			. '<a href="cargotest/Lorem_Ipsum" title="Lorem Ipsum">Lorem Ipsum</a></p>',
 			$output
 		);
 	}
