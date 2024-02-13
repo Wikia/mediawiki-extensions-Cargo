@@ -89,13 +89,23 @@ class CargoMapsFormat extends CargoDisplayFormat {
 	 */
 	public function display( $valuesTable, $formattedValuesTable, $fieldDescriptions, $displayParams ) {
 		$coordinatesFields = [];
+		$latField = null;
+		$lonField = null;
+		$urlField = null;
 		foreach ( $fieldDescriptions as $field => $description ) {
 			if ( $description->mType == 'Coordinates' ) {
 				$coordinatesFields[] = $field;
 			}
+			if ( $field == 'lat' ) {
+				$latField = $field;
+			} elseif ( $field == 'lon' ) {
+				$lonField = $field;
+			} elseif ( $field == 'URL' ) {
+				$urlField = $field;
+			}
 		}
 
-		if ( count( $coordinatesFields ) == 0 ) {
+		if ( count( $coordinatesFields ) == 0 && ( $latField == null || $lonField == null ) ) {
 			throw new MWException( "Error: no fields of type \"Coordinates\" were specified in this "
 			. "query; cannot display in a map." );
 		}
@@ -130,8 +140,8 @@ class CargoMapsFormat extends CargoDisplayFormat {
 					continue;
 				}
 				$fieldType = $fieldDescriptions[$fieldName]->mType;
-				if ( $fieldType == 'Coordinates' || $fieldType == 'Coordinates part' ) {
-					// Actually, we can ignore these.
+				// Don't display any values that are going to be included already.
+				if ( $fieldType == 'Coordinates' || $fieldType == 'Coordinates part' || $fieldName == $latField || $fieldName == $lonField || $fieldName == $urlField ) {
 					continue;
 				}
 				if ( $fieldValue == '' ) {
@@ -144,47 +154,28 @@ class CargoMapsFormat extends CargoDisplayFormat {
 			// @TODO - handle lists of coordinates as well.
 			foreach ( $coordinatesFields as $coordinatesField ) {
 				$coordinatesField = str_replace( ' ', '_', $coordinatesField );
-				if (
-					!array_key_exists( $coordinatesField . '  lat', $valuesRow ) ||
-					!array_key_exists( $coordinatesField . '  lon', $valuesRow )
-				) {
-					continue;
-				}
-				$latValue = $valuesRow[$coordinatesField . '  lat'];
-				$lonValue = $valuesRow[$coordinatesField . '  lon'];
-				// @TODO - enforce the existence of a field
-				// besides the coordinates field(s).
-				$firstValue = array_shift( $displayedValuesForRow );
+				$latValue = $valuesRow[$coordinatesField . '  lat'] ?? null;
+				$lonValue = $valuesRow[$coordinatesField . '  lon'] ?? null;
 				if ( $latValue != '' && $lonValue != '' ) {
-					$valuesForMapPoint = [
-						// 'name' has no formatting
-						// (like a link), while 'title'
-						// might.
-						'name' => array_shift( $valuesTable[$i] ),
-						'title' => $firstValue,
-						'lat' => $latValue,
-						'lon' => $lonValue,
-						'otherValues' => $displayedValuesForRow
-					];
-					if ( array_key_exists( 'icon', $displayParams ) ) {
-						$iconFileName = null;
-						if ( is_array( $displayParams['icon'] ) ) {
-							// Compound query.
-							if ( array_key_exists( $i, $displayParams['icon'] ) ) {
-								$iconFileName = $displayParams['icon'][$i];
-							}
-						} else {
-							// Regular query.
-							$iconFileName = $displayParams['icon'];
-						}
-						if ( $iconFileName !== null ) {
-							$iconURL = self::getImageURL( $iconFileName );
-							if ( $iconURL !== null ) {
-								$valuesForMapPoint['icon'] = $iconURL;
-							}
-						}
+					$nameValue = array_shift( $valuesTable[$i] );
+					// @TODO - enforce the existence of a field
+					// besides the coordinates field(s).
+					$firstValue = array_shift( $displayedValuesForRow );
+					$valuesForMap[] = self::getMapPointValues( $nameValue, $firstValue, $latValue, $lonValue, $displayedValuesForRow, $displayParams, $i );
+				}
+			}
+
+			if ( $latField !== null && $lonField !== null ) {
+				$latValue = $valuesRow[$latField] ?? null;
+				$lonValue = $valuesRow[$lonField] ?? null;
+				$urlValue = $valuesRow[$urlField] ?? null;
+				if ( $latValue != '' && $lonValue != '' ) {
+					$nameValue = array_shift( $valuesTable[$i] );
+					$titleValue = array_shift( $displayedValuesForRow );
+					if ( $urlValue !== null ) {
+						$titleValue = Html::element( 'a', [ 'href' => $urlValue ], $titleValue );
 					}
-					$valuesForMap[] = $valuesForMapPoint;
+					$valuesForMap[] = self::getMapPointValues( $nameValue, $titleValue, $latValue, $lonValue, $displayedValuesForRow, $displayParams, $i );
 				}
 			}
 		}
@@ -290,6 +281,37 @@ class CargoMapsFormat extends CargoDisplayFormat {
 		];
 		$mapCanvas = Html::rawElement( 'div', $mapCanvasAttrs, $mapData );
 		return $mapCanvas;
+	}
+
+	public static function getMapPointValues( $nameValue, $titleValue, $latValue, $lonValue, $displayedValuesForRow, $displayParams, $rowNum ) {
+		$valuesForMapPoint = [
+			// 'name' has no formatting (like a link), while 'title' might.
+			'name' => $nameValue,
+			'title' => $titleValue,
+			'lat' => $latValue,
+			'lon' => $lonValue,
+			'otherValues' => $displayedValuesForRow
+		];
+		if ( array_key_exists( 'icon', $displayParams ) ) {
+			$iconFileName = null;
+			if ( is_array( $displayParams['icon'] ) ) {
+				// Compound query.
+				if ( array_key_exists( $rowNum, $displayParams['icon'] ) ) {
+					$iconFileName = $displayParams['icon'][$rowNum];
+				}
+			} else {
+				// Regular query.
+				$iconFileName = $displayParams['icon'];
+			}
+			if ( $iconFileName !== null ) {
+				$iconURL = self::getImageURL( $iconFileName );
+				if ( $iconURL !== null ) {
+					$valuesForMapPoint['icon'] = $iconURL;
+				}
+			}
+		}
+
+		return $valuesForMapPoint;
 	}
 
 }

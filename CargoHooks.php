@@ -2,7 +2,6 @@
 
 use MediaWiki\Linker\LinkTarget;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Revision\RenderedRevision;
 use MediaWiki\Revision\RevisionRecord;
 use MediaWiki\Revision\SlotRecord;
 use MediaWiki\Storage\EditResult;
@@ -17,11 +16,11 @@ use MediaWiki\User\UserIdentity;
 class CargoHooks {
 
 	public static function registerExtension() {
-		define( 'CARGO_VERSION', '3.4.1' );
+		define( 'CARGO_VERSION', '3.5-alpha' );
 	}
 
 	public static function initialize() {
-		global $cgScriptPath, $wgExtensionAssetsPath, $wgCargoFieldTypes, $wgHooks;
+		global $cgScriptPath, $wgExtensionAssetsPath, $wgCargoFieldTypes;
 
 		// Script path.
 		$cgScriptPath = $wgExtensionAssetsPath . '/Cargo';
@@ -33,13 +32,6 @@ class CargoHooks {
 			'Wikitext string', 'Searchtext', 'File', 'URL', 'Email',
 			'Rating'
 		];
-
-		if ( interface_exists( 'MediaWiki\Page\Hook\PageDeleteCompleteHook' ) ) {
-			// MW 1.37+
-			$wgHooks['PageDeleteComplete'][] = "CargoHooks::onPageDeleteComplete";
-		} else {
-			$wgHooks['ArticleDeleteComplete'][] = "CargoHooks::onArticleDeleteComplete";
-		}
 	}
 
 	public static function registerParserFunctions( $parser ) {
@@ -154,7 +146,7 @@ class CargoHooks {
 		// efficiently delete from the former.)
 
 		// Get all the "main" tables that this page is contained in.
-		$dbw = wfGetDB( DB_MASTER );
+		$dbw = wfGetDB( DB_PRIMARY );
 		$cdb = CargoUtils::getDB();
 		$cdb->begin();
 		$cdbPageIDCheck = [ $cdb->addIdentifierQuotes( '_pageID' ) => $pageID ];
@@ -239,23 +231,6 @@ class CargoHooks {
 	}
 
 	/**
-	 * Each content edit
-	 *
-	 * We use that hook to delete all reverse links entries, in case cargo_query deleted from page
-	 *
-	 * @param RenderedRevision $renderedRevision
-	 * @param UserIdentity $user
-	 * @param CommentStoreComment $summary
-	 * @param array $flags
-	 * @param Status $hookStatus
-	 */
-	public static function onMultiContentSave( RenderedRevision $renderedRevision, UserIdentity $user, CommentStoreComment $summary, $flags, Status $hookStatus ) {
-		$pageId = $renderedRevision->getRevision()->getPageId();
-		CargoBackLinks::removeBackLinks( $pageId );
-		CargoBackLinks::purgePagesThatQueryThisPage( $pageId );
-	}
-
-	/**
 	 * Called by the MediaWiki 'PageSaveComplete' hook.
 	 *
 	 * @param WikiPage $wikiPage
@@ -291,6 +266,9 @@ class CargoHooks {
 		// Also, save data to any relevant "special tables", if they
 		// exist.
 		self::saveToSpecialTables( $wikiPage->getTitle() );
+
+		// Invalidate pages that reference this page in their Cargo query results.
+		CargoBackLinks::purgePagesThatQueryThisPage( $pageID );
 	}
 
 	public static function saveToSpecialTables( $title ) {
@@ -312,7 +290,7 @@ class CargoHooks {
 	/**
 	 * Called by a hook in the Approved Revs extension.
 	 */
-	public static function onARRevisionApproved( $parser, $title, $revID ) {
+	public static function onARRevisionApproved( $output, $title, $revID, $content ) {
 		$pageID = $title->getArticleID();
 		self::deletePageFromSystem( $pageID );
 		// In an unexpected surprise, it turns out that simply adding
@@ -336,7 +314,7 @@ class CargoHooks {
 	/**
 	 * Called by a hook in the Approved Revs extension.
 	 */
-	public static function onARRevisionUnapproved( $parser, $title ) {
+	public static function onARRevisionUnapproved( $output, $title, $content ) {
 		global $egApprovedRevsBlankIfUnapproved;
 
 		$pageID = $title->getArticleID();
@@ -378,7 +356,7 @@ class CargoHooks {
 				getCanonicalName( $newPageNamespace );
 			$newPageName = $nsText . ':' . $newPageTitle;
 		}
-		$dbw = wfGetDB( DB_MASTER );
+		$dbw = wfGetDB( DB_PRIMARY );
 		$cdb = CargoUtils::getDB();
 		$cdb->begin();
 
@@ -428,7 +406,7 @@ class CargoHooks {
 	/**
 	 * Deletes all Cargo data about a page, if the page has been deleted.
 	 *
-	 * Called by the MediaWiki PageDeleteComplete hook (MW 1.37+).
+	 * Called by the MediaWiki PageDeleteComplete hook.
 	 */
 	public static function onPageDeleteComplete(
 		MediaWiki\Page\ProperPageIdentity $page, MediaWiki\Permissions\Authority $deleter, string $reason,
@@ -438,22 +416,12 @@ class CargoHooks {
 	}
 
 	/**
-	 * Deletes all Cargo data about a page, if the page has been deleted.
-	 *
-	 * Called by the MediaWiki ArticleDeleteComplete hook.
-	 */
-	public static function onArticleDeleteComplete( &$article, User &$user, $reason, $id, $content,
-		$logEntry ) {
-		self::deletePageFromSystem( $id );
-	}
-
-	/**
 	 * Called by the MediaWiki 'UploadComplete' hook.
 	 *
 	 * Updates a file's entry in the _fileData table if it has been
 	 * uploaded or re-uploaded.
 	 *
-	 * @param UploadBase $image
+	 * @param Image $image
 	 */
 	public static function onUploadComplete( $image ) {
 		$cdb = CargoUtils::getDB();
@@ -572,12 +540,12 @@ class CargoHooks {
 		// For now, there's just a single SQL file for all DB types.
 
 		if ( $updater->getDB()->getType() == 'mysql' || $updater->getDB()->getType() == 'sqlite' ) {
-			$updater->addExtensionTable( 'cargo_tables', __DIR__ . "/../sql/Cargo.sql" );
-			$updater->addExtensionTable( 'cargo_pages', __DIR__ . "/../sql/Cargo.sql" );
-			$updater->addExtensionTable( 'cargo_backlinks', __DIR__ . "/../sql/cargo_backlinks.sql" );
+			$updater->addExtensionTable( 'cargo_tables', __DIR__ . "/sql/Cargo.sql" );
+			$updater->addExtensionTable( 'cargo_pages', __DIR__ . "/sql/Cargo.sql" );
+			$updater->addExtensionTable( 'cargo_backlinks', __DIR__ . "/sql/cargo_backlinks.sql" );
 		} elseif ( $updater->getDB()->getType() == 'postgres' ) {
-			$updater->addExtensionUpdate( [ 'addTable', 'cargo_tables', __DIR__ . "/../sql/Cargo.pg.sql", true ] );
-			$updater->addExtensionUpdate( [ 'addTable', 'cargo_pages', __DIR__ . "/../sql/Cargo.pg.sql", true ] );
+			$updater->addExtensionUpdate( [ 'addTable', 'cargo_tables', __DIR__ . "/sql/Cargo.pg.sql", true ] );
+			$updater->addExtensionUpdate( [ 'addTable', 'cargo_pages', __DIR__ . "/sql/Cargo.pg.sql", true ] );
 		}
 	}
 
@@ -614,11 +582,11 @@ class CargoHooks {
 
 	public static function cargoSchemaUpdates( DatabaseUpdater $updater ) {
 		if ( $updater->getDB()->getType() == 'mysql' || $updater->getDB()->getType() == 'sqlite' ) {
-			$updater->addExtensionField( 'cargo_tables', 'field_helper_tables', __DIR__ . '/../sql/cargo_tables.patch.field_helper_tables.sql' );
-			$updater->dropExtensionIndex( 'cargo_tables', 'cargo_tables_template_id', __DIR__ . '/../sql/cargo_tables.patch.index_template_id.sql' );
+			$updater->addExtensionField( 'cargo_tables', 'field_helper_tables', __DIR__ . '/sql/cargo_tables.patch.field_helper_tables.sql' );
+			$updater->dropExtensionIndex( 'cargo_tables', 'cargo_tables_template_id', __DIR__ . '/sql/cargo_tables.patch.index_template_id.sql' );
 		} elseif ( $updater->getDB()->getType() == 'postgres' ) {
-			$updater->addExtensionField( 'cargo_tables', 'field_helper_tables', __DIR__ . '/../sql/cargo_tables.patch.field_helper_tables.pg.sql' );
-			$updater->dropExtensionIndex( 'cargo_tables', 'cargo_tables_template_id', __DIR__ . '/../sql/cargo_tables.patch.index_template_id.pg.sql' );
+			$updater->addExtensionField( 'cargo_tables', 'field_helper_tables', __DIR__ . '/sql/cargo_tables.patch.field_helper_tables.pg.sql' );
+			$updater->dropExtensionIndex( 'cargo_tables', 'cargo_tables_template_id', __DIR__ . '/sql/cargo_tables.patch.index_template_id.pg.sql' );
 		}
 	}
 

@@ -128,8 +128,9 @@ class CargoFieldDescription {
 		$fieldDescription->mType = $type;
 
 		// Validation.
-		if ( $fieldDescription->mType == 'Text' && array_key_exists( 'unique', $fieldDescription->mOtherParams ) ) {
-			throw new MWException( "'unique' is not allowed for fields of type 'Text'." );
+		if ( in_array( $type, [ 'Text', 'Wikitext', 'Searchtext' ] ) &&
+			array_key_exists( 'unique', $fieldDescription->mOtherParams ) ) {
+			throw new MWException( "'unique' is not allowed for fields of type '$type'." );
 		}
 		if ( $fieldDescription->mType == 'Boolean' && $fieldDescription->mIsList == true ) {
 			throw new MWException( "Error: 'list' is not allowed for fields of type 'Boolean'." );
@@ -178,7 +179,7 @@ class CargoFieldDescription {
 
 	public function getDelimiter() {
 		// Make "\n" represent a newline.
-		return str_replace( '\n', "\n", $this->mDelimiter );
+		return str_replace( '\n', "\n", $this->mDelimiter ?? '' );
 	}
 
 	public function setDelimiter( $delimiter ) {
@@ -324,16 +325,12 @@ class CargoFieldDescription {
 				}
 				$individualValues = explode( $delimiter, $fieldValue );
 				foreach ( $individualValues as &$individualValue ) {
-					if ( !is_int( $individualValue ) ) {
-						$individualValue = round( $individualValue );
-					}
+					$individualValue = round( floatval( $individualValue ) );
 				}
 				$newValue = implode( $delimiter, $individualValues );
 			} else {
 				$newValue = str_replace( $wgCargoDigitGroupingCharacter, '', $fieldValue );
-				if ( !is_int( $newValue ) ) {
-					$newValue = round( $newValue );
-				}
+				$newValue = round( floatval( $newValue ) );
 			}
 		} elseif ( $fieldType == 'Float' || $fieldType == 'Rating' ) {
 			// Remove digit-grouping character, and change

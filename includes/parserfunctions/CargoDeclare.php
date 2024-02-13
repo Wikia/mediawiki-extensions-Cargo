@@ -92,20 +92,23 @@ class CargoDeclare {
 	 * @return string|null
 	 */
 	public static function validateFieldOrTableName( $name, $type ) {
+		// We can just call text() on all of these wfMessage() calls,
+		// since the resulting text is passed to formatFieldError(),
+		// which HTML-encodes the text.
 		if ( preg_match( '/\s/', $name ) ) {
-			return wfMessage( "cargo-declare-validate-has-whitespace", $type, $name )->parse();
+			return wfMessage( "cargo-declare-validate-has-whitespace", $type, $name )->text();
 		} elseif ( strpos( $name, '_' ) === 0 ) {
-			return wfMessage( "cargo-declare-validate-starts-underscore", $type, $name )->parse();
+			return wfMessage( "cargo-declare-validate-starts-underscore", $type, $name )->text();
 		} elseif ( substr( $name, -1 ) === '_' ) {
-			return wfMessage( "cargo-declare-validate-ends-underscore", $type, $name )->parse();
+			return wfMessage( "cargo-declare-validate-ends-underscore", $type, $name )->text();
 		} elseif ( strpos( $name, '__' ) !== false ) {
-			return wfMessage( "cargo-declare-validate-gt1-underscore", $type, $name )->parse();
-		} elseif ( preg_match( '/[\.,\-<>(){}\[\]\\\\\/]/', $name ) ) {
-			return wfMessage( "cargo-declare-validate-bad-character", $type, $name, '.,-<>(){}[]\/' )->parse();
+			return wfMessage( "cargo-declare-validate-gt1-underscore", $type, $name )->text();
+		} elseif ( preg_match( '/[\.,\-\'"<>(){}\[\]\\\\\/]/', $name ) ) {
+			return wfMessage( "cargo-declare-validate-bad-character", $type, $name, '.,-\'"<>(){}[]\/' )->text();
 		} elseif ( in_array( strtolower( $name ), self::$sqlReservedWords ) ) {
-			return wfMessage( "cargo-declare-validate-name-sql-kw", $name, $type )->parse();
+			return wfMessage( "cargo-declare-validate-name-sql-kw", $name, $type )->text();
 		} elseif ( in_array( strtolower( $name ), self::$cargoReservedWords ) ) {
-			return wfMessage( "cargo-declare-validate-name-cargo-kw", $name, $type )->parse();
+			return wfMessage( "cargo-declare-validate-name-cargo-kw", $name, $type )->text();
 		}
 		return null;
 	}
@@ -123,21 +126,35 @@ class CargoDeclare {
 
 		$params = func_get_args();
 		array_shift( $params ); // we already know the $parser...
+		$args = [];
+		foreach ( $params as $key => $value ) {
+			$parts = explode( '=', $value, 2 );
+			if ( count( $parts ) != 2 ) {
+				continue;
+			}
+			$key = trim( $parts[0] );
+			$value = trim( $parts[1] );
+			$args[$key] = $value;
+		}
+		$text = self::declareTable( $parser, $args );
+		return $text;
+	}
 
+	/**
+	 * Implements #cargo_declare functionality which is shared among parser function and lua
+	 *
+	 * @param Parser $parser
+	 * @param array $params
+	 * @return string|null
+	 */
+	public static function declareTable( $parser, $params ) {
 		$tableName = null;
 		$parentTables = [];
 		$drilldownTabsParams = [];
 		$tableSchema = new CargoTableSchema();
 		$hasStartEvent = false;
 		$hasEndEvent = false;
-		foreach ( $params as $param ) {
-			$parts = explode( '=', $param, 2 );
-
-			if ( count( $parts ) != 2 ) {
-				continue;
-			}
-			$key = trim( $parts[0] );
-			$value = trim( $parts[1] );
+		foreach ( $params as $key => $value ) {
 			if ( $key == '_table' ) {
 				$tableName = $value;
 				if ( in_array( strtolower( $tableName ), self::$sqlReservedWords ) ) {
@@ -399,6 +416,17 @@ class CargoDeclare {
 				$tableSchema,
 				$parentTables
 			);
+
+			// Populate (or re-populate) the table with any
+			// existing data from the wiki.
+			// @todo This should cycle through *all* the pages,
+			// 500 at a time, in case there are a lot.
+			$titlesToStore = CargoUtils::getTemplateLinksTo( $title, [ 'LIMIT' => 1000 ] );
+			$jobs = [];
+			foreach ( $titlesToStore as $titleToStore ) {
+				$jobs[] = new CargoPopulateTableJob( $titleToStore, [ 'dbTableName' => $tableName ] );
+			}
+			MediaWikiServices::getInstance()->getJobQueueGroup()->push( $jobs );
 
 			// Ensure that this code doesn't get called more than
 			// once per page save.

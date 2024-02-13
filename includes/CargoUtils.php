@@ -14,9 +14,6 @@ class CargoUtils {
 
 	private static $CargoDB = null;
 
-	/**
-	 * @return Database or DatabaseBase
-	 */
 	public static function getDB() {
 		if ( self::$CargoDB != null && self::$CargoDB->isOpen() ) {
 			return self::$CargoDB;
@@ -610,7 +607,7 @@ class CargoUtils {
 			$tableSchemaString = $tableSchema->toDBString();
 		}
 
-		$dbw = wfGetDB( DB_MASTER );
+		$dbw = wfGetDB( DB_PRIMARY );
 		$cdb = self::getDB();
 
 		// Cannot run any recreate if a replacement table exists.
@@ -1204,7 +1201,11 @@ class CargoUtils {
 			$quotedFieldName = $db->addIdentifierQuotes( $fieldName );
 			$quotedFieldValues[$quotedFieldName] = $fieldValue;
 		}
-		$db->insert( $tableName, $quotedFieldValues );
+		// Calling tableName() here is necessary, for some reason,
+		// to pass validation (and maybe even to work at all?) for
+		// MW 1.41+.
+		$sqlTableName = $db->tableName( $tableName );
+		$db->insert( $sqlTableName, $quotedFieldValues );
 	}
 
 	/**
@@ -1379,31 +1380,6 @@ class CargoUtils {
 		}
 	}
 
-	/**
-	 * Replace file redirects with the appropriate targets
-	 * @param array $valuesArray
-	 * @param array $fieldDescriptions
-	 * @return array $valuesArray
-	 */
-	public static function replaceRedirectWithTarget( $valuesArray, $fieldDescriptions ) {
-		foreach ( $valuesArray as &$result ) {
-			foreach ( $result as $key => &$val ) {
-				if ( array_key_exists( $key, $fieldDescriptions ) &&
-				$fieldDescriptions[ $key ]->mType == "File" ) {
-					$title = Title::newFromText( $val );
-					if ( $title != null && $title->isRedirect() ) {
-						$page = self::makeWikiPage( $title );
-						$target = $page->getRedirectTarget();
-						if ( $target != null ) {
-							$val = $target->getText();
-						}
-					}
-				}
-			}
-		}
-		return $valuesArray;
-	}
-
 	public static function globalFields() {
 		return [
 			'_pageID' => [ 'type' => 'Integer', 'isList' => false ],
@@ -1430,11 +1406,6 @@ class CargoUtils {
 	}
 
 	public static function makeWikiPage( $title ) {
-		if ( method_exists( MediaWikiServices::class, 'getWikiPageFactory' ) ) {
-			// MW 1.36+
-			return MediaWikiServices::getInstance()->getWikiPageFactory()->newFromTitle( $title );
-		} else {
-			return WikiPage::factory( $title );
-		}
+		return MediaWikiServices::getInstance()->getWikiPageFactory()->newFromTitle( $title );
 	}
 }

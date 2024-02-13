@@ -1,4 +1,9 @@
 <?php
+
+use MediaWiki\Linker\LinkTarget;
+use MediaWiki\Linker\LinkTargetLookup;
+use MediaWiki\MediaWikiServices;
+
 /**
  * Displays an interface to let users recreate data via the Cargo
  * extension.
@@ -52,7 +57,7 @@ class SpecialCargoRecreateData extends UnlistedSpecialPage {
 		}
 
 		$specialTableNames = CargoUtils::specialTableNames();
-		if ( empty( $this->mTemplateTitle ) && !in_array( $this->mTableName, $specialTableNames ) ) {
+		if ( !$this->mTemplateTitle && !in_array( $this->mTableName, $specialTableNames ) ) {
 			// TODO - show an error message.
 			return true;
 		}
@@ -60,7 +65,7 @@ class SpecialCargoRecreateData extends UnlistedSpecialPage {
 		$out->addModules( 'ext.cargo.recreatedata' );
 
 		$templateData = [];
-		$dbw = wfGetDB( DB_MASTER );
+		$dbw = wfGetDB( DB_PRIMARY );
 		if ( $this->mTemplateTitle === null ) {
 			if ( $this->mTableName == '_pageData' ) {
 				$conds = null;
@@ -160,11 +165,12 @@ class SpecialCargoRecreateData extends UnlistedSpecialPage {
 		return true;
 	}
 
-	public function getNumPagesThatCallTemplate( $dbw, $templateTitle ) {
+	public function getNumPagesThatCallTemplate( $dbw, LinkTarget $templateTitle ) {
 		$conds = [ "tl_from=page_id" ];
-		if ( class_exists( 'MediaWiki\CommentFormatter\CommentBatch' ) ) {
+		if ( method_exists( LinkTargetLookup::class, 'getLinkTargetId' ) ) {
 			// MW 1.38+
-			$conds['tl_target_id'] = $templateTitle->getID();
+			$linkTargetLookup = MediaWikiServices::getInstance()->getLinkTargetLookup();
+			$conds['tl_target_id'] = $linkTargetLookup->getLinkTargetId( $templateTitle );
 		} else {
 			$conds['tl_namespace'] = $templateTitle->getNamespace();
 			$conds['tl_title'] = $templateTitle->getDBkey();

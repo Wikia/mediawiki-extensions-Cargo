@@ -7,6 +7,7 @@
  * @author Yaron Koren.
  * @author Alexander Mashin.
  */
+
 class CargoLuaLibrary extends Scribunto_LuaLibraryBase {
 
 	/**
@@ -16,7 +17,9 @@ class CargoLuaLibrary extends Scribunto_LuaLibraryBase {
 	public function register() {
 		$lib = [
 			'query' => [ $this, 'cargoQuery' ],
-			'format' => [ $this, 'cargoFormat' ]
+			'format' => [ $this, 'cargoFormat' ],
+			'store' => [ $this, 'cargoStore' ],
+			'declare' => [ $this, 'cargoDeclare' ]
 		];
 		return $this->getEngine()->registerInterface( __DIR__ . '/../cargo.lua', $lib, [] );
 	}
@@ -122,5 +125,29 @@ class CargoLuaLibrary extends Scribunto_LuaLibraryBase {
 			return $converted;
 		}
 		return $table;
+	}
+
+	/**
+	 * Implementation of mw.ext.cargo.store.
+	 *
+	 * @param string $table
+	 * @param array $args
+	 */
+	public function cargoStore( string $table, array $args ) {
+		$this->checkType( 'query', 1, $table, 'string' );
+		$this->checkType( 'query', 2, $args, 'table' );
+		$parser = $this->getParser();
+		CargoStore::storeTable( $parser, $table, $args );
+	}
+
+	/**
+	 * Implementation of mw.ext.cargo.declare.
+	 *
+	 * @param array $args
+	 */
+	public function cargoDeclare( array $args ) {
+		$this->checkType( 'query', 1, $args, 'table' );
+		$parser = $this->getParser();
+		CargoDeclare::declareTable( $parser, $args );
 	}
 }

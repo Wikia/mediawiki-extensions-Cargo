@@ -19,6 +19,7 @@ class CargoQueryDisplayer {
 		'embedded' => CargoEmbeddedFormat::class,
 		'csv' => CargoCSVFormat::class,
 		'excel' => CargoExcelFormat::class,
+		'feed' => CargoFeedFormat::class,
 		'json' => CargoJSONFormat::class,
 		'outline' => CargoOutlineFormat::class,
 		'tree' => CargoTreeFormat::class,
@@ -67,7 +68,7 @@ class CargoQueryDisplayer {
 
 		// Let other extensions add their own formats - or even
 		// remove formats, if they want to.
-		Hooks::run( 'CargoSetFormatClasses', [ &$formatClasses ] );
+		MediaWikiServices::getInstance()->getHookContainer()->run( 'CargoSetFormatClasses', [ &$formatClasses ] );
 
 		return $formatClasses;
 	}
@@ -103,9 +104,9 @@ class CargoQueryDisplayer {
 	}
 
 	public function getFormattedQueryResults( $queryResults, $escapeValues = false ) {
-		// The assignment will do a copy.
 		global $wgScriptPath, $wgServer;
-		$queryResults = CargoUtils::replaceRedirectWithTarget( $queryResults, $this->mFieldDescriptions );
+
+		// The assignment will do a copy.
 		$formattedQueryResults = $queryResults;
 		foreach ( $queryResults as $rowNum => $row ) {
 			foreach ( $row as $fieldName => $value ) {
@@ -239,6 +240,16 @@ class CargoQueryDisplayer {
 			if ( $title == null || !$title->exists() ) {
 				return $value;
 			}
+
+			// If it's a redirect, use the redirect target instead.
+			if ( $title->isRedirect() ) {
+				$page = CargoUtils::makeWikiPage( $title );
+				$title = $page->getRedirectTarget();
+				if ( !$title->exists() ) {
+					return $title->getText();
+				}
+			}
+
 			$file = MediaWikiServices::getInstance()->getRepoGroup()->getLocalRepo()->newFile( $title );
 			return Linker::makeThumbLinkObj(
 				$title,

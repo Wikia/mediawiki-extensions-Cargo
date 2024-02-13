@@ -6,6 +6,8 @@
  * @ingroup Cargo
  */
 
+use MediaWiki\MediaWikiServices;
+
 class CargoStore {
 
 	public static $settings = [];
@@ -28,15 +30,6 @@ class CargoStore {
 	public static function run( $parser, $frame, $args ) {
 		// Get page-related information early on, so we can exit
 		// quickly if there's a problem.
-		$title = $parser->getTitle();
-		$pageID = $title->getArticleID();
-		if ( $pageID <= 0 ) {
-			// This will most likely happen if the title is a
-			// "special" page.
-			wfDebugLog( 'cargo', "CargoStore::run() - skipping; not called from a wiki page.\n" );
-			return;
-		}
-
 		$params = [];
 		foreach ( $args as $arg ) {
 			$params[] = trim( $frame->expand( $arg ) );
@@ -112,8 +105,28 @@ class CargoStore {
 			}
 		}
 
-		$origTableName = $tableName;
+		self::storeTable( $parser, $tableName, $tableFieldValues );
+	}
 
+	/**
+	 * Implements cargo_store functionality which is shared among parser function and lua
+	 *
+	 * @param Parser $parser
+	 * @param string $tableName
+	 * @param array $tableFieldValues
+	 */
+	public static function storeTable( $parser, $tableName, $tableFieldValues ) {
+		// Get page-related information early on, so we can exit
+		// quickly if there's a problem.
+		$title = $parser->getTitle();
+		$pageID = $title->getArticleID();
+		if ( $pageID <= 0 ) {
+			// This will most likely happen if the title is a
+			// "special" page.
+			wfDebugLog( 'cargo', "CargoStore::run() - skipping; not called from a wiki page.\n" );
+			return;
+		}
+		$origTableName = $tableName;
 		// Always store data in the replacement table if it exists.
 		$cdb = CargoUtils::getDB();
 		$cdb->begin();
@@ -122,7 +135,7 @@ class CargoStore {
 		}
 
 		// Get the declaration of the table.
-		$dbw = wfGetDB( DB_MASTER );
+		$dbw = wfGetDB( DB_PRIMARY );
 		$res = $dbw->select( 'cargo_tables', 'table_schema', [ 'main_table' => $tableName ] );
 		$row = $res->fetchRow();
 		if ( $row == '' ) {
@@ -168,7 +181,7 @@ class CargoStore {
 
 		// Finally, add a record of this to the cargo_pages table, if
 		// necessary.
-		$dbw = wfGetDB( DB_MASTER );
+		$dbw = wfGetDB( DB_PRIMARY );
 		$res = $dbw->select( 'cargo_pages', 'page_id',
 			[ 'table_name' => $tableName, 'page_id' => $pageID ] );
 		if ( !$res->fetchRow() ) {
@@ -318,7 +331,7 @@ class CargoStore {
 		$tableFieldValues['_pageID'] = $pageID;
 
 		// Allow other hooks to modify the values.
-		Hooks::run( 'CargoBeforeStoreData', [ $title, $tableName, &$tableSchema, &$tableFieldValues ] );
+		MediaWikiServices::getInstance()->getHookContainer()->run( 'CargoBeforeStoreData', [ $title, $tableName, &$tableSchema, &$tableFieldValues ] );
 
 		$cdb = CargoUtils::getDB();
 
@@ -521,7 +534,9 @@ class CargoStore {
 				$fieldSize = $fieldDescription->getFieldSize();
 			}
 
-			if ( $fieldValue === '' ) {
+			if ( $fieldValue === null ) {
+				// Do nothing.
+			} elseif ( $fieldValue === '' ) {
 				// Needed for correct SQL handling of blank values, for some reason.
 				$fieldValue = null;
 			} elseif ( $fieldSize != null && strlen( $fieldValue ) > $fieldSize ) {

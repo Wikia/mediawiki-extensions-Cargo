@@ -41,14 +41,14 @@ class CargoExport extends UnlistedSpecialPage {
 
 		$sqlQueries = [];
 		foreach ( $tableArray as $i => $table ) {
-			$fields = $fieldsArray[$i];
-			$where = $whereArray !== null ? $whereArray[$i] : null;
-			$joinOn = $joinOnArray !== null ? $joinOnArray[$i] : null;
-			$groupBy = $groupByArray !== null ? $groupByArray[$i] : null;
-			$having = $havingArray !== null ? $havingArray[$i] : null;
-			$orderBy = $orderByArray !== null ? $orderByArray[$i] : null;
-			$limit = $limitArray !== null ? $limitArray[$i] : null;
-			$offset = $offsetArray !== null ? $offsetArray[$i] : null;
+			$fields = $fieldsArray[$i] ?? null;
+			$where = $whereArray[$i] ?? null;
+			$joinOn = $joinOnArray[$i] ?? null;
+			$groupBy = $groupByArray[$i] ?? null;
+			$having = $havingArray[$i] ?? null;
+			$orderBy = $orderByArray[$i] ?? null;
+			$limit = $limitArray[$i] ?? null;
+			$offset = $offsetArray[$i] ?? null;
 			$sqlQueries[] = CargoSQLQuery::newFromValues( $table,
 				$fields, $where, $joinOn, $groupBy, $having,
 				$orderBy, $limit, $offset );
@@ -83,7 +83,7 @@ class CargoExport extends UnlistedSpecialPage {
 			} elseif ( $format == 'excel' ) {
 				$filename = $req->getVal( 'filename' );
 				if ( $filename == '' ) {
-					$filename = 'results.xls';
+					$filename = 'results.xlsx';
 				}
 				$parseValues = $req->getCheck( 'parse_values' );
 				$this->displayExcelData( $sqlQueries, $filename, $parseValues );
@@ -98,11 +98,13 @@ class CargoExport extends UnlistedSpecialPage {
 				$this->displayBibtexData( $sqlQueries, $defaultEntryType );
 			} elseif ( $format === 'icalendar' ) {
 				$this->displayIcalendarData( $sqlQueries );
+			} elseif ( $format === 'feed' ) {
+				$this->displayFeedData( $sqlQueries );
 			} else {
 				// Let other extensions display the data if they have defined their own "deferred"
 				// formats. This is an unusual hook in that functions that use it have to return false;
 				// otherwise the error message will be displayed.
-				$result = Hooks::run( 'CargoDisplayExportData', [ $format, $sqlQueries, $req ] );
+				$result = $this->getHookContainer()->run( 'CargoDisplayExportData', [ $format, $sqlQueries, $req ] );
 				if ( $result ) {
 					print $this->msg( "cargo-query-missingformat" )->parse();
 				}
@@ -156,6 +158,9 @@ class CargoExport extends UnlistedSpecialPage {
 				} else {
 					$eventTitle = reset( $queryResult );
 				}
+				// The FullCalendar JS library will HTML-encode
+				// titles, so avoid a double-encoding.
+				$eventTitle = html_entity_decode( $eventTitle );
 				if ( array_key_exists( 'color', $queryResult ) ) {
 					$eventColor = $queryResult['color'];
 				} elseif ( $colorArray != null && array_key_exists( $i, $colorArray ) ) {
@@ -611,7 +616,13 @@ class CargoExport extends UnlistedSpecialPage {
 			$queryResults = $this->parseWikitextInQueryResults( $queryResults );
 		}
 
-		$file = new PHPExcel();
+		if ( class_exists( 'PhpOffice\PhpSpreadsheet\Spreadsheet' ) ) {
+			$file = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+		} elseif ( class_exists( 'PHPExcel' ) ) {
+			$file = new PHPExcel();
+		} else {
+			die( "Error: Either the PHPExcel or the PhpSpreadsheet library must be installed for this format to work." );
+		}
 		$file->setActiveSheetIndex( 0 );
 
 		// Create array with header row and query results.
@@ -623,7 +634,11 @@ class CargoExport extends UnlistedSpecialPage {
 		header( "Content-Disposition: attachment;filename=$filename" );
 		header( "Cache-Control: max-age=0" );
 
-		$writer = PHPExcel_IOFactory::createWriter( $file, 'Excel5' );
+		if ( class_exists( 'PhpOffice\PhpSpreadsheet\Spreadsheet' ) ) {
+			$writer = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter( $file, 'Xlsx' );
+		} elseif ( class_exists( 'PHPExcel' ) ) {
+			$writer = PHPExcel_IOFactory::createWriter( $file, 'Excel2007' );
+		}
 
 		$writer->save( 'php://output' );
 	}
@@ -684,6 +699,16 @@ class CargoExport extends UnlistedSpecialPage {
 
 		$filename = $req->getText( 'filename', 'export.ics' );
 		$this->outputFile( 'text/calendar', $filename, 'ics', $calendar );
+	}
+
+	/**
+	 * Output an RSS or Atom feed.
+	 *
+	 * @param CargoSQLQuery[] $sqlQueries
+	 */
+	private function displayFeedData( $sqlQueries ) {
+		$format = new CargoFeedFormat( $this->getOutput() );
+		$format->outputFeed( $this->getRequest(), $sqlQueries );
 	}
 
 	/**

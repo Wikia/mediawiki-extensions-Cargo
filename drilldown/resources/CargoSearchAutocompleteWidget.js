@@ -61,7 +61,6 @@ CargoSearchAutocompleteWidget.prototype.getLookupRequest = function () {
 
 	requestParams.table = this.config.table;
 	requestParams.field = this.config.field;
-	requestParams.field_is_array = this.config.field_is_array;
 	requestParams.where = this.config.where;
 
 	return api.get( requestParams );
@@ -91,7 +90,7 @@ CargoSearchAutocompleteWidget.prototype.getLookupMenuOptionsFromData = function 
 		return [
 			new OO.ui.MenuOptionWidget( {
 				disabled: true,
-				label: mw.message( 'pf-select2-no-matches' ).text()
+				label: mw.message( 'cargo-drilldown-nomatches' ).text()
 			} )
 		];
 	}
