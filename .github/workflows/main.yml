@@ -7,11 +7,20 @@ on:
     branches: [ master, REL1_39 ]
 
 jobs:
+  matrix_prep:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v4
+      - id: set-matrix
+        run: echo "::set-output name=matrix::{\"include\":[{\"php_version\":\"8.0\",\"mw\":\"${{ github.event.pull_request.base.ref || 'master' }}\"}]}"
+
   build:
+    needs: matrix_prep
     strategy:
-      matrix:
-        php_version: ['8.0']
-        mw: ['REL1_39']
+      matrix: ${{fromJson(needs.matrix_prep.outputs.matrix)}}
 
     runs-on: ubuntu-latest
     steps:
