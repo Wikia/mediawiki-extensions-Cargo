@@ -15,6 +15,8 @@ class CargoQueryIntegrationTest extends MediaWikiIntegrationTestCase {
 	protected function setUp(): void {
 		parent::setUp();
 
+		$this->setMwGlobals( [ 'wgArticlePath' => 'cargotest/$1' ] );
+
 		// Prepare some basic fixture data that is likely to be used by several test cases.
 		$fixtureTemplate = Title::makeTitle( NS_TEMPLATE, 'Books' );
 		if ( !$fixtureTemplate->exists() ) {
@@ -47,8 +49,8 @@ TEXT;
 		$output = $this->getQueryOutput( $query );
 
 		$this->assertXmlStringEqualsXmlString(
-			'<p><a href="/index.php/A_Test" title="A Test">A Test</a>,  '
-			. '<a href="/index.php/Lorem_Ipsum" title="Lorem Ipsum">Lorem Ipsum</a></p>',
+			'<p><a href="/cargotest/index.php/A_Test" title="A Test">A Test</a>,  '
+			. '<a href="/cargotest/index.php/Lorem_Ipsum" title="Lorem Ipsum">Lorem Ipsum</a></p>',
 			$output
 		);
 	}
