@@ -81,9 +81,7 @@ class CargoBacklinksIntegrationTest extends MediaWikiIntegrationTestCase {
 	 * @param int $timestamp The UNIX touched timestamp to set.
 	 */
 	private function resetTouchedTimestamp( $titles, int $timestamp ): void {
-		$dbw = $this->getDb();
-
-		$dbw->update(
+		$this->db->update(
 			'page',
 			// SET
 			[ 'page_touched' => wfTimestamp( TS_MW, $timestamp ) ],
@@ -99,9 +97,7 @@ class CargoBacklinksIntegrationTest extends MediaWikiIntegrationTestCase {
 	 * @return int[]
 	 */
 	private function getCargoBacklinks( int $queryPageId ): array {
-		$dbr = $this->getDb();
-
-		return $dbr->selectFieldValues(
+		return $this->db->selectFieldValues(
 			'cargo_backlinks',
 			'cbl_result_page_id',
 			[ 'cbl_query_page_id' => $queryPageId ],
