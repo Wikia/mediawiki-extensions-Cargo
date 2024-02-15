@@ -36,7 +36,7 @@ class CargoSQLQuery {
 	public $mDateFieldPairs = [];
 
 	public function __construct() {
-		$this->mCargoDB = CargoUtils::getDB();
+		$this->mCargoDB = CargoServices::getCargoConnectionProvider()->getConnection( DB_REPLICA );
 	}
 
 	/**
@@ -56,7 +56,6 @@ class CargoSQLQuery {
 			$havingStr, $orderByStr, $limitStr, $offsetStr, $allowFieldEscaping );
 
 		$sqlQuery = new CargoSQLQuery();
-		$sqlQuery->mCargoDB = CargoUtils::getDB();
 		$sqlQuery->mTablesStr = $tablesStr;
 		$sqlQuery->setAliasedTableNames();
 		$sqlQuery->mFieldsStr = $fieldsStr;
