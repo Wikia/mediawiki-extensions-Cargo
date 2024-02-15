@@ -12,78 +12,14 @@ use MediaWiki\MediaWikiServices;
 
 class CargoUtils {
 
-	private static $CargoDB = null;
-
-	public static function getDB() {
-		if ( self::$CargoDB != null && self::$CargoDB->isOpen() ) {
-			return self::$CargoDB;
-		}
-
-		global $wgDBuser, $wgDBpassword, $wgDBprefix, $wgDBservers;
-		global $wgCargoDBserver, $wgCargoDBname, $wgCargoDBuser, $wgCargoDBpassword, $wgCargoDBprefix, $wgCargoDBtype;
-
-		$services = MediaWikiServices::getInstance();
-		$lb = $services->getDBLoadBalancer();
-		$dbr = $lb->getConnectionRef( DB_REPLICA );
-		$server = $dbr->getServer();
-		$name = $dbr->getDBname();
-		$type = $dbr->getType();
-
-		// We need $wgCargoDBtype for other functions.
-		if ( $wgCargoDBtype === null ) {
-			$wgCargoDBtype = $type;
-		}
-		$dbServer = $wgCargoDBserver === null ? $server : $wgCargoDBserver;
-		$dbName = $wgCargoDBname === null ? $name : $wgCargoDBname;
-
-		// Server (host), db name, and db type can be retrieved from $dbr via
-		// public methods, but username and password cannot. If these values are
-		// not set for Cargo, get them from either $wgDBservers or wgDBuser and
-		// $wgDBpassword, depending on whether or not there are multiple DB servers.
-		if ( $wgCargoDBuser !== null ) {
-			$dbUsername = $wgCargoDBuser;
-		} elseif ( is_array( $wgDBservers ) && isset( $wgDBservers[0] ) ) {
-			$dbUsername = $wgDBservers[0]['user'];
-		} else {
-			$dbUsername = $wgDBuser;
-		}
-		if ( $wgCargoDBpassword !== null ) {
-			$dbPassword = $wgCargoDBpassword;
-		} elseif ( is_array( $wgDBservers ) && isset( $wgDBservers[0] ) ) {
-			$dbPassword = $wgDBservers[0]['password'];
-		} else {
-			$dbPassword = $wgDBpassword;
-		}
-
-		if ( $wgCargoDBprefix !== null ) {
-			$dbTablePrefix = $wgCargoDBprefix;
-		} else {
-			$dbTablePrefix = $wgDBprefix . 'cargo__';
-		}
-
-		$params = [
-			'host' => $dbServer,
-			'user' => $dbUsername,
-			'password' => $dbPassword,
-			'dbname' => $dbName,
-			'tablePrefix' => $dbTablePrefix,
-		];
-
-		if ( $type === 'sqlite' ) {
-			$params['dbFilePath'] = $dbr->getDbFilePath();
-		} elseif ( $type === 'postgres' ) {
-			global $wgDBport;
-			// @TODO - a $wgCargoDBport variable is still needed.
-			$params['port'] = $wgDBport;
-		}
-
-		if ( method_exists( $services, 'getDatabaseFactory' ) ) {
-			// MW 1.39+
-			self::$CargoDB = $services->getDatabaseFactory()->create( $wgCargoDBtype, $params );
-		} else {
-			self::$CargoDB = Database::factory( $wgCargoDBtype, $params );
-		}
-		return self::$CargoDB;
+	/**
+	 * Get the Cargo database connection.
+	 * @deprecated Use {@link CargoConnectionProvider::getConnection()} directly instead.
+	 * @param int $dbType
+	 * @return \Wikimedia\Rdbms\IDatabase
+	 */
+	public static function getDB( int $dbType = DB_PRIMARY ) {
+		return CargoServices::getCargoConnectionProvider()->getConnection( $dbType );
 	}
 
 	/**
@@ -464,13 +400,11 @@ class CargoUtils {
 	}
 
 	public static function getDateFunctions( $dateDBField ) {
-		global $wgCargoDBtype;
-
 		// Unfortunately, date handling in general - and date extraction
 		// specifically - is done differently in almost every DB
 		// system. If support was ever added for SQLite,
 		// that would require special handling as well.
-		if ( $wgCargoDBtype == 'postgres' ) {
+		if ( CargoServices::getCargoConnectionProvider()->getDBType() == 'postgres' ) {
 			$yearValue = "EXTRACT(YEAR FROM $dateDBField)";
 			$monthValue = "EXTRACT(MONTH FROM $dateDBField)";
 			$dayValue = "EXTRACT(DAY FROM $dateDBField)";
