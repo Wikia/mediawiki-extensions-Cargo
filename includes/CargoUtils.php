@@ -620,8 +620,7 @@ class CargoUtils {
 			return false;
 		}
 
-		$cdb = self::getDB();
-		return $cdb->tableExists( $tableName );
+		return CargoServices::getCargoConnectionProvider()->getConnection( DB_REPLICA )->tableExists( $tableName );
 	}
 
 	public static function fieldTypeToSQLType( $fieldType, $dbType, $size = null ) {
