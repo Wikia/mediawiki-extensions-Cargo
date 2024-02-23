@@ -64,7 +64,7 @@ class SpecialCargoRecreateData extends UnlistedSpecialPage {
 		$out->addModules( 'ext.cargo.recreatedata' );
 
 		$templateData = [];
-		$dbw = wfGetDB( DB_MASTER );
+		$dbr = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_REPLICA );
 		if ( $this->mTemplateTitle === null ) {
 			if ( $this->mTableName == '_pageData' ) {
 				$conds = null;
@@ -75,18 +75,18 @@ class SpecialCargoRecreateData extends UnlistedSpecialPage {
 			} else { // if ( $this->mTableName == '_ganttData' ) {
 				$conds = 'page_namespace = ' . FD_NS_GANTT;
 			}
-			$numTotalPages = $dbw->selectField( 'page', 'COUNT(*)', $conds );
+			$numTotalPages = $dbr->selectField( 'page', 'COUNT(*)', $conds );
 		} else {
 			$numTotalPages = null;
 			$templateData[] = [
 				'name' => $this->mTemplateTitle->getText(),
-				'numPages' => $this->getNumPagesThatCallTemplate( $dbw, $this->mTemplateTitle )
+				'numPages' => $this->getNumPagesThatCallTemplate( $dbr, $this->mTemplateTitle )
 			];
 		}
 
 		if ( $this->mIsDeclared ) {
 			// Get all attached templates.
-			$res = $dbw->select( 'page_props',
+			$res = $dbr->select( 'page_props',
 				[
 					'pp_page'
 				],
@@ -98,7 +98,7 @@ class SpecialCargoRecreateData extends UnlistedSpecialPage {
 			foreach ( $res as $row ) {
 				$templateID = $row->pp_page;
 				$attachedTemplateTitle = Title::newFromID( $templateID );
-				$numPages = $this->getNumPagesThatCallTemplate( $dbw, $attachedTemplateTitle );
+				$numPages = $this->getNumPagesThatCallTemplate( $dbr, $attachedTemplateTitle );
 				$attachedTemplateName = $attachedTemplateTitle->getText();
 				$templateData[] = [
 					'name' => $attachedTemplateName,
@@ -156,7 +156,7 @@ class SpecialCargoRecreateData extends UnlistedSpecialPage {
 		return true;
 	}
 
-	public function getNumPagesThatCallTemplate( IDatabase $dbw, LinkTarget $templateTitle ) {
+	public function getNumPagesThatCallTemplate( IDatabase $dbr, LinkTarget $templateTitle ) {
 		$conds = [ "tl_from=page_id" ];
 
 		// MW 1.38+ - use the normalized link target ID for fetching incoming links to this template.
@@ -170,7 +170,7 @@ class SpecialCargoRecreateData extends UnlistedSpecialPage {
 			$conds['tl_title'] = $templateTitle->getDBkey();
 		}
 
-		$res = $dbw->select(
+		$res = $dbr->select(
 			[ 'page', 'templatelinks' ],
 			'COUNT(*) AS total',
 			$conds,

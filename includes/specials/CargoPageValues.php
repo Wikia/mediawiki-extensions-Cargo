@@ -162,8 +162,6 @@ class CargoPageValues extends IncludableSpecialPage {
 	}
 
 	public function getRowsForPageInTable( $tableName ) {
-		$cdb = CargoUtils::getDB();
-
 		$sqlQuery = new CargoSQLQuery();
 		$sqlQuery->mAliasedTableNames = [ $tableName => $tableName ];
 
@@ -197,7 +195,8 @@ class CargoPageValues extends IncludableSpecialPage {
 		$sqlQuery->mOrigAliasedFieldNames = $aliasedFieldNames;
 		$sqlQuery->setDescriptionsAndTableNamesForFields();
 		$sqlQuery->handleDateFields();
-		$sqlQuery->mWhereStr = $cdb->addIdentifierQuotes( '_pageID' ) . " = " .
+		$sqlQuery->mWhereStr = CargoServices::getCargoConnectionProvider()->getConnection( DB_REPLICA )
+				->addIdentifierQuotes( '_pageID' ) . " = " .
 			$this->mTitle->getArticleID();
 
 		$queryResults = $sqlQuery->run();
