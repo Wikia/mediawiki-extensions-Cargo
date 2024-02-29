@@ -31,6 +31,9 @@ class CargoConnectionProvider {
 		'CargoDBprefix',
 		'CargoDBtype',
 
+		// Fandom change: Optional DB index override to use for Cargo in a single-connection setup (PLATFORM-7466)
+		'CargoDBIndex',
+
 		// Optional external cluster name to use for Cargo.
 		// Supersedes all above configuration if present.
 		'CargoDBCluster'
@@ -114,7 +117,9 @@ class CargoConnectionProvider {
 	 */
 	private function initConnection(): IDatabase {
 		$lb = $this->lbFactory->getMainLB();
-		$dbr = $lb->getConnection( DB_REPLICA );
+		// Fandom change: Use the DB index specified in the CargoDBIndex option (PLATFORM-7466).
+		$index = $this->serviceOptions->get( 'CargoDBIndex' ) ?? $lb::DB_PRIMARY;
+		$dbr = $lb->getConnection( $index );
 
 		$dbServers = $this->serviceOptions->get( 'DBservers' );
 		$dbUser = $this->serviceOptions->get( 'DBuser' );

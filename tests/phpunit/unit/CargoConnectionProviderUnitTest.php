@@ -49,7 +49,7 @@ class CargoConnectionProviderUnitTest extends MediaWikiUnitTestCase {
 
 		$this->dbLoadBalancer->expects( $this->any() )
 			->method( 'getConnection' )
-			->with( DB_REPLICA )
+			->with( $serviceOptions->get( 'CargoDBIndex' ) ?? DB_PRIMARY )
 			->willReturn( $mainConn );
 
 		$mainConn->expects( $this->any() )
@@ -90,6 +90,8 @@ class CargoConnectionProviderUnitTest extends MediaWikiUnitTestCase {
 				'CargoDBprefix' => null,
 				'CargoDBtype' => null,
 
+				'CargoDBIndex' => null,
+
 				'CargoDBCluster' => null,
 			],
 			'mysql',
@@ -120,6 +122,8 @@ class CargoConnectionProviderUnitTest extends MediaWikiUnitTestCase {
 				'CargoDBprefix' => null,
 				'CargoDBtype' => null,
 
+				'CargoDBIndex' => null,
+
 				'CargoDBCluster' => null,
 			],
 			'mysql',
@@ -127,6 +131,35 @@ class CargoConnectionProviderUnitTest extends MediaWikiUnitTestCase {
 				'host' => 'localhost',
 				'user' => 'primary_db_user',
 				'password' => 'primary_db_password',
+				'dbname' => 'test_wiki_db',
+				'tablePrefix' => 'cargo__',
+			]
+		];
+
+		yield 'inferred from main connection with CargoDBIndex override' => [
+			[
+				'DBuser' => 'db_user',
+				'DBpassword' => 'db_password',
+				'DBport' => 0,
+				'DBprefix' => '',
+				'DBservers' => [],
+
+				'CargoDBserver' => null,
+				'CargoDBname' => null,
+				'CargoDBuser' => null,
+				'CargoDBpassword' => null,
+				'CargoDBprefix' => null,
+				'CargoDBtype' => null,
+
+				'CargoDBIndex' => DB_REPLICA,
+
+				'CargoDBCluster' => null,
+			],
+			'mysql',
+			[
+				'host' => 'localhost',
+				'user' => 'db_user',
+				'password' => 'db_password',
 				'dbname' => 'test_wiki_db',
 				'tablePrefix' => 'cargo__',
 			]
@@ -149,6 +182,8 @@ class CargoConnectionProviderUnitTest extends MediaWikiUnitTestCase {
 				'CargoDBpassword' => 'cargo_db_password',
 				'CargoDBprefix' => 'cargoprefix',
 				'CargoDBtype' => 'postgres',
+
+				'CargoDBIndex' => null,
 
 				'CargoDBCluster' => null,
 			],
@@ -181,6 +216,8 @@ class CargoConnectionProviderUnitTest extends MediaWikiUnitTestCase {
 				'CargoDBprefix' => null,
 				'CargoDBtype' => null,
 
+				'CargoDBIndex' => null,
+
 				'CargoDBCluster' => null,
 			],
 			'mysql',
@@ -211,6 +248,8 @@ class CargoConnectionProviderUnitTest extends MediaWikiUnitTestCase {
 			'CargoDBpassword' => null,
 			'CargoDBprefix' => null,
 			'CargoDBtype' => null,
+
+			'CargoDBIndex' => null,
 
 			'CargoDBCluster' => 'testCargoCluster',
 		] );
@@ -257,6 +296,8 @@ class CargoConnectionProviderUnitTest extends MediaWikiUnitTestCase {
 			'CargoDBpassword' => null,
 			'CargoDBprefix' => null,
 			'CargoDBtype' => null,
+
+			'CargoDBIndex' => null,
 
 			'CargoDBCluster' => 'testCargoCluster',
 		] );

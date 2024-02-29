@@ -487,6 +487,7 @@
 		"CargoDBprefix": null,
 		"CargoDBRowFormat": null,
 		"CargoDBCluster": null,
+		"CargoDBIndex": null,
 		"CargoDefaultStringBytes": 300,
 		"CargoDefaultQueryLimit": 100,
 		"CargoMaxQueryLimit": 5000,
