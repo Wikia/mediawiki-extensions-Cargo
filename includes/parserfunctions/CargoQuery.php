@@ -114,6 +114,8 @@ class CargoQuery {
 				);
 				$queryResultsJustForResultsTitle = $sqlQueryJustForResultsTitle->run();
 			}
+		} catch ( \Wikimedia\Rdbms\DBError $e ) {
+			throw $e;
 		} catch ( Exception $e ) {
 			return CargoUtils::formatError( $e->getMessage() );
 		}
