@@ -170,6 +170,8 @@
 		"CargoLinksUpdateHandler": "includes/hooks/CargoLinksUpdateHandler.php",
 		"CargoSearchMySQL": "includes/search/CargoSearchMySQL.php",
 		"CargoPageSchemas": "includes/CargoPageSchemas.php",
+		"CargoConnectionProvider": "includes/CargoConnectionProvider.php",
+		"CargoServices": "includes/CargoServices.php",
 		"CargoAppliedFilter": "drilldown/CargoAppliedFilter.php",
 		"CargoFilter": "drilldown/CargoFilter.php",
 		"CargoFilterValue": "drilldown/CargoFilterValue.php",
@@ -472,6 +474,7 @@
 			"class": "CargoLinksUpdateHandler"
 		}
 	},
+	"ServiceWiringFiles": ["includes/ServiceWiring.php"],
 	"config": {
 		"CargoDecimalMark": ".",
 		"CargoDigitGroupingCharacter": ",",
@@ -483,6 +486,7 @@
 		"CargoDBpassword": null,
 		"CargoDBprefix": null,
 		"CargoDBRowFormat": null,
+		"CargoDBCluster": null,
 		"CargoDBIndex": null,
 		"CargoDefaultStringBytes": 300,
 		"CargoDefaultQueryLimit": 100,

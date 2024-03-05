@@ -9,117 +9,17 @@
 use MediaWiki\Linker\LinkRenderer;
 use MediaWiki\Linker\LinkTarget;
 use MediaWiki\MediaWikiServices;
-use Wikimedia\Rdbms\DatabaseMysqli;
-use Wikimedia\Rdbms\IDatabase;
 
 class CargoUtils {
 
-	private static $CargoDB = null;
-
 	/**
-	 * @return Database or DatabaseBase
+	 * Get the Cargo database connection.
+	 * @deprecated Use {@link CargoConnectionProvider::getConnection()} directly instead.
+	 * @param int $dbType
+	 * @return \Wikimedia\Rdbms\IDatabase
 	 */
-	public static function getDB() {
-		if ( self::$CargoDB != null && self::$CargoDB->isOpen() ) {
-			return self::$CargoDB;
-		}
-
-		global $wgDBuser, $wgDBpassword, $wgDBprefix, $wgDBservers;
-		global $wgCargoDBserver, $wgCargoDBname, $wgCargoDBuser, $wgCargoDBpassword,
-			   $wgCargoDBprefix, $wgCargoDBtype, $wgCargoDBIndex;
-
-		$services = MediaWikiServices::getInstance();
-		$lb = $services->getDBLoadBalancer();
-		$dbIndex = $wgCargoDBIndex !== null ?: DB_PRIMARY;
-		$dbr = $lb->getConnectionRef( $dbIndex );
-
-		$server = $dbr->getServer();
-		$name = $dbr->getDBname();
-		$type = $dbr->getType();
-
-		// We need $wgCargoDBtype for other functions.
-		if ( $wgCargoDBtype === null ) {
-			$wgCargoDBtype = $type;
-		}
-		$dbServer = $wgCargoDBserver === null ? $server : $wgCargoDBserver;
-		$dbName = $wgCargoDBname === null ? $name : $wgCargoDBname;
-
-		// Server (host), db name, and db type can be retrieved from $dbw via
-		// public methods, but username and password cannot. If these values are
-		// not set for Cargo, get them from either $wgDBservers or wgDBuser and
-		// $wgDBpassword, depending on whether or not there are multiple DB servers.
-		if ( $wgCargoDBuser !== null ) {
-			$dbUsername = $wgCargoDBuser;
-		} elseif ( is_array( $wgDBservers ) && isset( $wgDBservers[0] ) ) {
-			$dbUsername = $wgDBservers[0]['user'];
-		} else {
-			$dbUsername = $wgDBuser;
-		}
-		if ( $wgCargoDBpassword !== null ) {
-			$dbPassword = $wgCargoDBpassword;
-		} elseif ( is_array( $wgDBservers ) && isset( $wgDBservers[0] ) ) {
-			$dbPassword = $wgDBservers[0]['password'];
-		} else {
-			$dbPassword = $wgDBpassword;
-		}
-
-		if ( $wgCargoDBprefix !== null ) {
-			$dbTablePrefix = $wgCargoDBprefix;
-		} else {
-			$dbTablePrefix = $wgDBprefix . 'cargo__';
-		}
-
-		$params = [
-			'host' => $dbServer,
-			'user' => $dbUsername,
-			'password' => $dbPassword,
-			'dbname' => $dbName,
-			'tablePrefix' => $dbTablePrefix,
-			// MySQL >= 8.0.22 rejects using binary strings in regular expression functions
-			// such as REGEXP_LIKE(), heavily used across Cargo, so force UTF-8 client charset here.
-			'utf8Mode' => true,
-		];
-
-		if ( $type === 'sqlite' ) {
-			$params['dbFilePath'] = $dbr->getDbFilePath();
-		} elseif ( $type === 'postgres' ) {
-			global $wgDBport;
-			// @TODO - a $wgCargoDBport variable is still needed.
-			$params['port'] = $wgDBport;
-		}
-
-		if ( method_exists( $services, 'getDatabaseFactory' ) ) {
-			// MW 1.39+
-			self::$CargoDB = $services->getDatabaseFactory()->create( $wgCargoDBtype, $params );
-		} else {
-			self::$CargoDB = Database::factory( $wgCargoDBtype, $params );
-		}
-
-		// Fandom change: Ensure Cargo DB connections use 4-byte UTF-8 client character set (UGC-4625).
-		self::setClientCharacterSet( self::$CargoDB );
-
-		return self::$CargoDB;
-	}
-
-	/**
-	 * Set the client character set of a database connection handle to 4-byte UTF-8.
-	 * This is necessary because Cargo utilizes functions such as REGEXP_LIKE(),
-	 * which fail if the client character set is "binary".
-	 *
-	 * @param IDatabase $dbw Database connection handle.
-	 */
-	private static function setClientCharacterSet( IDatabase $dbw ): void {
-		if ( $dbw instanceof DatabaseMysqli ) {
-			// Force open the database connection so that we can obtain the underlying native connection handle.
-			$dbw->ping();
-
-			$ref = new ReflectionMethod( $dbw, 'getBindingHandle' );
-			$ref->setAccessible( true );
-
-			/** @var mysqli $mysqli */
-			$mysqli = $ref->invoke( $dbw );
-			$mysqli->set_charset( 'utf8mb4' );
-		}
+	public static function getDB( int $dbType = DB_PRIMARY ) {
+		return CargoServices::getCargoConnectionProvider()->getConnection( $dbType );
 	}
 
 	/**
@@ -500,13 +400,11 @@ class CargoUtils {
 	}
 
 	public static function getDateFunctions( $dateDBField ) {
-		global $wgCargoDBtype;
-
 		// Unfortunately, date handling in general - and date extraction
 		// specifically - is done differently in almost every DB
 		// system. If support was ever added for SQLite,
 		// that would require special handling as well.
-		if ( $wgCargoDBtype == 'postgres' ) {
+		if ( CargoServices::getCargoConnectionProvider()->getDBType() == 'postgres' ) {
 			$yearValue = "EXTRACT(YEAR FROM $dateDBField)";
 			$monthValue = "EXTRACT(MONTH FROM $dateDBField)";
 			$dayValue = "EXTRACT(DAY FROM $dateDBField)";
@@ -722,8 +620,7 @@ class CargoUtils {
 			return false;
 		}
 
-		$cdb = self::getDB();
-		return $cdb->tableExists( $tableName );
+		return CargoServices::getCargoConnectionProvider()->getConnection( DB_REPLICA )->tableExists( $tableName );
 	}
 
 	public static function fieldTypeToSQLType( $fieldType, $dbType, $size = null ) {
