@@ -169,6 +169,17 @@ class CargoConnectionProvider {
 	 * @param IDatabase $dbw Database connection handle.
 	 */
 	private static function setClientCharacterSet( IDatabase $dbw ): void {
+		// For DBConnRefs wrapping a lazy-initialized connection handle,
+		// we need to unwrap that connection handle to set the character set.
+		if ( $dbw instanceof DBConnRef ) {
+			// Force open the database connection so that we can obtain the underlying native connection handle.
+			$dbw->ping();
+
+			$ref = new ReflectionProperty( $dbw, 'conn' );
+			$ref->setAccessible( true );
+			$dbw = $ref->getValue( $dbw );
+		}
+
 		if ( $dbw instanceof DatabaseMysqli ) {
 			// Force open the database connection so that we can obtain the underlying native connection handle.
 			$dbw->ping();
