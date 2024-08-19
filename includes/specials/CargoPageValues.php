@@ -76,7 +76,7 @@ class CargoPageValues extends IncludableSpecialPage {
 			$tableLink = $this->getTableLink( $tableName );
 
 			$tableSectionHeader = $this->msg( 'cargo-pagevalues-tablevalues' )->rawParams( $tableLink )->escaped();
-			$tableSectionTocDisplay = $this->msg( 'cargo-pagevalues-tablevalues', $tableName )->text();
+			$tableSectionTocDisplay = $this->msg( 'cargo-pagevalues-tablevalues', $tableName )->escaped();
 			$tableSectionAnchor = $this->msg( 'cargo-pagevalues-tablevalues', $tableName )->escaped();
 			$tableSectionAnchor = Sanitizer::escapeIdForAttribute( $tableSectionAnchor );
 
