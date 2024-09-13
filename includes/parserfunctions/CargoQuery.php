@@ -69,7 +69,7 @@ class CargoQuery {
 				$format = $value;
 			} else {
 				// We'll assume it's going to the formatter.
-				$displayParams[$key] = $value;
+				$displayParams[$key] = htmlspecialchars( $value );
 			}
 		}
 		// Special handling.

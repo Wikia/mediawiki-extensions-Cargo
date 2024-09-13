@@ -90,11 +90,11 @@ class SpecialDeleteCargoTable extends UnlistedSpecialPage {
 
 		if ( $req->wasPosted() && $req->getCheck( 'delete' ) && $csrfTokenSet->matchToken( $req->getText( 'wpEditToken' ) ) ) {
 			self::deleteTable( $tableName, $fieldTables, $fieldHelperTables );
-			$text = Html::element( 'p', null, $this->msg( 'cargo-deletetable-success', $tableName )->parse() ) . "\n";
+			$text = Html::rawElement( 'p', null, $this->msg( 'cargo-deletetable-success', $tableName )->escaped() ) . "\n";
 			$tablesLink = CargoUtils::makeLink( $this->getLinkRenderer(),
 				$ctPage->getPageTitle(),
 				htmlspecialchars( $ctPage->getDescription() ) );
-			$text .= Html::rawElement( 'p', null, $this->msg( 'returnto', $tablesLink )->text() );
+			$text .= Html::rawElement( 'p', null, $this->msg( 'returnto' )->rawParams( $tablesLink )->escaped() );
 			$out->addHTML( $text );
 			if ( !$replacementTable ) {
 				CargoUtils::logTableAction( 'deletetable', $tableName, $this->getUser() );

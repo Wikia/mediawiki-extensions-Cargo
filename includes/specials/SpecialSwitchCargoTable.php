@@ -126,7 +126,7 @@ class SpecialSwitchCargoTable extends UnlistedSpecialPage {
 			$text = Html::element( 'p', null, $this->msg( 'cargo-switchtables-success', $tableName )->parse() ) . "\n";
 			$tablesLink = CargoUtils::makeLink( $this->getLinkRenderer(),
 				$ctPage->getPageTitle(), $ctPage->getDescription() );
-			$text .= Html::rawElement( 'p', null, $this->msg( 'returnto', $tablesLink )->text() );
+			$text .= Html::rawElement( 'p', null, $this->msg( 'returnto' )->rawParams( $tablesLink )->escaped() );
 			$out->addHTML( $text );
 			return true;
 		}
@@ -134,7 +134,7 @@ class SpecialSwitchCargoTable extends UnlistedSpecialPage {
 		$ctURL = $ctPage->getPageTitle()->getLocalURL();
 		$tableLink = Html::element( 'a', [ 'href' => "$ctURL/$tableName", ], $tableName );
 
-		$text = Html::rawElement( 'p', null, $this->msg( 'cargo-switchtables-confirm', $tableLink )->text() );
+		$text = Html::rawElement( 'p', null, $this->msg( 'cargo-switchtables-confirm' )->rawParams( $tableLink )->escaped() );
 		$out->addHTML( $text );
 
 		$htmlForm = HTMLForm::factory( 'ooui', [], $this->getContext() );
