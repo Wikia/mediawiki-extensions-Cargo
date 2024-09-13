@@ -363,11 +363,11 @@ class CargoFieldDescription {
 	}
 
 	public function prettyPrintType() {
-		$typeDesc = '<tt>' . $this->mType . '</tt>';
+		$typeDesc = Html::element( 'tt', null, $this->mType );
 		if ( $this->mIsList ) {
-			$delimiter = '<tt>' . $this->mDelimiter . '</tt>';
-			$typeDesc = wfMessage( 'cargo-cargotables-listof',
-				$typeDesc, $delimiter )->parse();
+			$delimiter = Html::element( 'tt', null, $this->mDelimiter );
+			$typeDesc = wfMessage( 'cargo-cargotables-listof' )
+				->rawParams( $typeDesc, $delimiter )->escaped();
 		}
 		return $typeDesc;
 	}
@@ -377,14 +377,15 @@ class CargoFieldDescription {
 
 		$attributesStrings = [];
 		if ( $this->mIsMandatory ) {
-			$attributesStrings[] = [ wfMessage( 'cargo-cargotables-mandatory' )->text() ];
+			$attributesStrings[] = [ wfMessage( 'cargo-cargotables-mandatory' )->escaped() ];
 		}
 		if ( $this->mIsUnique ) {
-			$attributesStrings[] = [ wfMessage( 'cargo-cargotables-unique' )->text() ];
+			$attributesStrings[] = [ wfMessage( 'cargo-cargotables-unique' )->escaped() ];
 		}
 		if ( $this->mAllowedValues !== null ) {
-			$allowedValuesStr = implode( ' &middot; ', $this->mAllowedValues );
-			$attributesStrings[] = [ wfMessage( 'cargo-cargotables-allowedvalues' )->text(),
+			$escapedAllowedValues = array_map( 'htmlspecialchars', $this->mAllowedValues );
+			$allowedValuesStr = implode( ' &middot; ', $escapedAllowedValues );
+			$attributesStrings[] = [ wfMessage( 'cargo-cargotables-allowedvalues' )->escaped(),
 				$allowedValuesStr ];
 		}
 		if ( count( $attributesStrings ) == 0 ) {
