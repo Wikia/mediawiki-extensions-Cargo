@@ -362,6 +362,11 @@ class CargoFieldDescription {
 		return $valueArray;
 	}
 
+	public function prettyPrintAllowedValues() {
+		$escapedAllowedValues = array_map( 'htmlspecialchars', $this->mAllowedValues );
+		return implode( ' &middot; ', $escapedAllowedValues );
+	}
+
 	public function prettyPrintType() {
 		$typeDesc = Html::element( 'tt', null, $this->mType );
 		if ( $this->mIsList ) {
