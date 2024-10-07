@@ -82,8 +82,8 @@ class CargoPageValues extends IncludableSpecialPage {
 
 			$tableLink = $this->getTableLink( $tableName );
 
-			$tableSectionHeader = $this->msg( 'cargo-pagevalues-tablevalues', $tableLink )->text();
-			$tableSectionTocDisplay = $this->msg( 'cargo-pagevalues-tablevalues', $tableName )->text();
+			$tableSectionHeader = $this->msg( 'cargo-pagevalues-tablevalues' )->rawParams( $tableLink )->escaped();
+			$tableSectionTocDisplay = $this->msg( 'cargo-pagevalues-tablevalues', $tableName )->escaped();
 			$tableSectionAnchor = $this->msg( 'cargo-pagevalues-tablevalues', $tableName )->escaped();
 			$tableSectionAnchor = Sanitizer::escapeIdForAttribute( $tableSectionAnchor );
 
@@ -161,7 +161,7 @@ class CargoPageValues extends IncludableSpecialPage {
 			$fieldInfo[$fieldName]['field type'] = $fieldDescription->prettyPrintType();
 			$delimiter = strlen( $fieldDescription->getDelimiter() ) ? $fieldDescription->getDelimiter() : ',';
 			if ( is_array( $fieldDescription->mAllowedValues ) ) {
-				$fieldInfo[$fieldName]['allowed values'] = implode( ' &middot; ', $fieldDescription->mAllowedValues );
+				$fieldInfo[$fieldName]['allowed values'] = $fieldDescription->prettyPrintAllowedValues();
 			} else {
 				$fieldInfo[$fieldName]['allowed values'] = '';
 			}

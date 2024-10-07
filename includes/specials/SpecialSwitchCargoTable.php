@@ -89,6 +89,8 @@ class SpecialSwitchCargoTable extends UnlistedSpecialPage {
 
 		$out = $this->getOutput();
 		$req = $this->getRequest();
+		$csrfTokenSet = $this->getContext()->getCsrfTokenSet();
+
 		$tableName = $subpage;
 		$out->enableOOUI();
 
@@ -119,7 +121,7 @@ class SpecialSwitchCargoTable extends UnlistedSpecialPage {
 		$fieldTables = unserialize( $row['field_tables'] );
 		$fieldHelperTables = unserialize( $row['field_helper_tables'] );
 
-		if ( $this->getRequest()->getCheck( 'switch' ) ) {
+		if ( $req->wasPosted() && $req->getCheck( 'switch' ) && $csrfTokenSet->matchToken( $req->getText( 'wpEditToken' ) ) ) {
 			self::switchInTableReplacement( $tableName, $fieldTables, $fieldHelperTables, $this->getUser() );
 			$text = Html::element( 'p', null, $this->msg( 'cargo-switchtables-success', $tableName )->parse() ) . "\n";
 			$tablesLink = CargoUtils::makeLink( $this->getLinkRenderer(),
