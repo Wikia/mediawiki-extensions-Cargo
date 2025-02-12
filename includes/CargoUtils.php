@@ -12,18 +12,83 @@ use MediaWiki\MediaWikiServices;
 use Wikimedia\Rdbms\DatabaseMySQL;
 use Wikimedia\Rdbms\DBConnRef;
 use Wikimedia\Rdbms\IDatabase;
+use Wikimedia\Rdbms\IMaintainableDatabase;
 
 class CargoUtils {
 
+	/** @var IMaintainableDatabase|null */
+	private static $CargoDB = null;
 	/**
-	 * @return \Wikimedia\Rdbms\IMaintainableDatabase
+	 * @return IMaintainableDatabase
 	 */
 	public static function getDB( int $dbType = DB_PRIMARY ) {
-		if ( $dbType === DB_PRIMARY ) {
-			return self::getMainDBForWrite();
-		} else {
-			return self::getMainDBForRead();
+		if ( self::$CargoDB != null && self::$CargoDB->isOpen() ) {
+			return self::$CargoDB;
 		}
+
+		global $wgDBuser, $wgDBpassword, $wgDBprefix, $wgDBservers;
+		global $wgCargoDBserver, $wgCargoDBname, $wgCargoDBuser, $wgCargoDBpassword, $wgCargoDBprefix, $wgCargoDBtype, $wgCargoDBfilePath;
+
+		$services = MediaWikiServices::getInstance();
+		$dbr = self::getMainDBForRead();
+		$server = $dbr->getServer();
+		$name = $dbr->getDBname();
+		$type = $dbr->getType();
+
+		// We need $wgCargoDBtype for other functions.
+		if ( $wgCargoDBtype === null ) {
+			$wgCargoDBtype = $type;
+		}
+		$dbServer = $wgCargoDBserver === null ? $server : $wgCargoDBserver;
+		$dbName = $wgCargoDBname === null ? $name : $wgCargoDBname;
+
+		// Server (host), db name, and db type can be retrieved from $dbr via
+		// public methods, but username and password cannot. If these values are
+		// not set for Cargo, get them from either $wgDBservers or wgDBuser and
+		// $wgDBpassword, depending on whether or not there are multiple DB servers.
+		if ( $wgCargoDBuser !== null ) {
+			$dbUsername = $wgCargoDBuser;
+		} elseif ( is_array( $wgDBservers ) && isset( $wgDBservers[0] ) ) {
+			$dbUsername = $wgDBservers[0]['user'];
+		} else {
+			$dbUsername = $wgDBuser;
+		}
+		if ( $wgCargoDBpassword !== null ) {
+			$dbPassword = $wgCargoDBpassword;
+		} elseif ( is_array( $wgDBservers ) && isset( $wgDBservers[0] ) ) {
+			$dbPassword = $wgDBservers[0]['password'];
+		} else {
+			$dbPassword = $wgDBpassword;
+		}
+
+		if ( $wgCargoDBprefix !== null ) {
+			$dbTablePrefix = $wgCargoDBprefix;
+		} else {
+			$dbTablePrefix = $wgDBprefix . 'cargo__';
+		}
+
+		$params = [
+			'host' => $dbServer,
+			'user' => $dbUsername,
+			'password' => $dbPassword,
+			'dbname' => $dbName,
+			'tablePrefix' => $dbTablePrefix,
+		];
+
+		if ( $type === 'sqlite' ) {
+			if ( $wgCargoDBfilePath !== null ) {
+				$params['dbFilePath'] = $wgCargoDBfilePath;
+			} else {
+				$params['dbFilePath'] = $dbr->getDbFilePath();
+			}
+		} elseif ( $type === 'postgres' ) {
+			global $wgDBport;
+			// @TODO - a $wgCargoDBport variable is still needed.
+			$params['port'] = $wgDBport;
+		}
+
+		self::$CargoDB = $services->getDatabaseFactory()->create( $wgCargoDBtype, $params );
+		return self::$CargoDB;
 	}
 
 	/**
@@ -72,7 +137,7 @@ class CargoUtils {
 	 * Provides a reference to the main (not the Cargo) database for read
 	 * access.
 	 *
-	 * @return \Wikimedia\Rdbms\IMaintainableDatabase
+	 * @return IMaintainableDatabase
 	 */
 	public static function getMainDBForRead() {
 		$lbFactory = MediaWikiServices::getInstance()->getDBLoadBalancerFactory();
@@ -96,7 +161,7 @@ class CargoUtils {
 	 * Provides a reference to the main (not the Cargo) database for write
 	 * access.
 	 *
-	 * @return \Wikimedia\Rdbms\IMaintainableDatabase
+	 * @return IMaintainableDatabase
 	 */
 	public static function getMainDBForWrite() {
 		$lbFactory = MediaWikiServices::getInstance()->getDBLoadBalancerFactory();
