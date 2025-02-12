@@ -36,7 +36,7 @@ class CargoSQLQuery {
 	public $mDateFieldPairs = [];
 
 	public function __construct() {
-		$this->mCargoDB = CargoUtils::getMainDBForRead();
+		$this->mCargoDB = CargoUtils::getDB(DB_REPLICA);
 	}
 
 	/**
