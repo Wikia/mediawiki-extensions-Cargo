@@ -554,7 +554,7 @@ class CargoUtils {
 
 	public static function getDateFunctions( $dateDBField ) {
 		global $wgCargoDBtype;
-		$dbType = $wgCargoDBtype ?? self::getMainDBForRead()->getType();
+		$dbType = $wgCargoDBtype ?? self::getDB(DB_REPLICA)->getType();
 
 		// Unfortunately, date handling in general - and date extraction
 		// specifically - is done differently in almost every DB

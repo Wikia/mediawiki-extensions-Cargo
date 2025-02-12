@@ -148,7 +148,7 @@ class CargoStore {
 		}
 
 		// Always store data in the replacement table if it exists.
-		$cdb = CargoUtils::getMainDBForWrite();
+		$cdb = CargoUtils::getDB();
 		$cdb->startAtomic( __METHOD__ );
 		if ( $cdb->tableExists( $tableName . '__NEXT', __METHOD__ ) ) {
 			$tableName .= '__NEXT';

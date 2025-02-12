@@ -335,7 +335,7 @@ class CargoDeclare {
 
 		// Validate table name.
 
-		$cdb = CargoUtils::getMainDBForRead();
+		$cdb = CargoUtils::getDB();
 
 		foreach ( $parentTables as $extraParams ) {
 			$parentTableName = $extraParams['Name'];
