@@ -41,8 +41,10 @@ class CargoAttach {
 			return CargoUtils::formatError( wfMessage( "cargo-notable" )->parse() );
 		}
 
-		$dbw = CargoUtils::getMainDBForWrite();
-		$res = $dbw->select( 'cargo_tables', 'COUNT(*) AS total', [ 'main_table' => $tableName ], __METHOD__ );
+		// Fandom-start: read from replica
+		$res = CargoUtils::getMainDBForRead()
+			->select( 'cargo_tables', 'COUNT(*) AS total', [ 'main_table' => $tableName ], __METHOD__ );
+		// Fandom-end
 		$row = $res->fetchRow();
 		if ( $row && $row['total'] == 0 ) {
 			return CargoUtils::formatError( "Error: The specified table, \"$tableName\", does not exist." );

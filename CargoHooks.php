@@ -152,7 +152,9 @@ class CargoHooks {
 		// Get all the "main" tables that this page is contained in.
 		$dbw = CargoUtils::getMainDBForWrite();
 		$cdb = CargoUtils::getDB();
-		$cdb->begin( __METHOD__ );
+		// Fandom-start
+		$cdb->startAtomic( __METHOD__ );
+		// Fandom-end
 		$cdbPageIDCheck = [ $cdb->addIdentifierQuotes( '_pageID' ) => $pageID ];
 
 		$res = $dbw->select( 'cargo_pages', 'table_name', [ 'page_id' => $pageID ], __METHOD__ );
@@ -167,17 +169,21 @@ class CargoHooks {
 			// First, delete from the "field" tables.
 			$fieldTablesValue = $dbw->selectField( 'cargo_tables', 'field_tables', [ 'main_table' => $curMainTable ], __METHOD__ );
 			$fieldTableNames = unserialize( $fieldTablesValue );
-			foreach ( $fieldTableNames as $curFieldTable ) {
-				// Thankfully, the MW DB API already provides a
-				// nice method for deleting based on a join.
-				$cdb->deleteJoin(
-					$curFieldTable,
-					$curMainTable,
-					$cdb->addIdentifierQuotes( '_rowID' ),
-					$cdb->addIdentifierQuotes( '_ID' ),
-					$cdbPageIDCheck
-				);
+			// Fandom-start - make sure $fieldTableNames is an array
+			if ( is_array( $fieldTableNames ) ) {
+				foreach ( $fieldTableNames as $curFieldTable ) {
+					// Thankfully, the MW DB API already provides a
+					// nice method for deleting based on a join.
+					$cdb->deleteJoin(
+						$curFieldTable,
+						$curMainTable,
+						$cdb->addIdentifierQuotes( '_rowID' ),
+						$cdb->addIdentifierQuotes( '_ID' ),
+						$cdbPageIDCheck
+					);
+				}
 			}
+			// Fandom-end
 
 			// Delete from the "files" helper table, if it exists.
 			$curFilesTable = $curMainTable . '___files';
@@ -202,14 +208,16 @@ class CargoHooks {
 		CargoBackLinks::managePageDeletion( $pageID );
 
 		// End transaction and apply DB changes.
-		$cdb->commit( __METHOD__ );
+		// Fandom-start
+		$cdb->endAtomic( __METHOD__ );
+		// Fandom-end
 	}
 
 	public static function deletePageFromSpecialTable( $pageID, $specialTableName ) {
 		$cdb = CargoUtils::getDB();
 		// There's a reasonable chance that this table doesn't exist
 		// at all - if so, exit.
-		if ( !$cdb->tableExists( $specialTableName ) ) {
+		if ( !$cdb->tableExists( $specialTableName, __METHOD__ ) ) {
 			return;
 		}
 		$replacementTableName = $specialTableName . '__NEXT';
@@ -228,7 +236,8 @@ class CargoHooks {
 				$specialTableName,
 				$cdb->addIdentifierQuotes( '_rowID' ),
 				$cdb->addIdentifierQuotes( '_ID' ),
-				$cdbPageIDCheck
+				$cdbPageIDCheck,
+				__METHOD__
 			);
 		}
 		$cdb->delete( $specialTableName, $cdbPageIDCheck, __METHOD__ );
@@ -362,7 +371,9 @@ class CargoHooks {
 		}
 		$dbw = CargoUtils::getMainDBForWrite();
 		$cdb = CargoUtils::getDB();
-		$cdb->begin( __METHOD__ );
+		// Fandom-start
+		$cdb->startAtomic( __METHOD__ );
+		// Fandom-end
 
 		$res = $dbw->select( 'cargo_pages', 'table_name', [ 'page_id' => $pageid ], __METHOD__ );
 		foreach ( $res as $row ) {
@@ -398,8 +409,9 @@ class CargoHooks {
 			}
 		}
 
-		// End transaction and apply DB changes.
-		$cdb->commit( __METHOD__ );
+		// Fandom-start
+		$cdb->endAtomic( __METHOD__ );
+		// Fandom-end
 
 		// Save data for the original page (now a redirect).
 		if ( $redirid != 0 ) {
@@ -496,10 +508,14 @@ class CargoHooks {
 		$pageID = $wikiPage->getId();
 
 		$cdb = CargoUtils::getDB();
-		$cdb->begin( __METHOD__ );
+		// Fandom-start
+		$cdb->startAtomic( __METHOD__ );
+		// Fandom-end
 		$res = $cdb->select( $pageDataTable, '_ID', [ '_pageID' => $pageID ], __METHOD__ );
 		if ( $res->numRows() == 0 ) {
-			$cdb->commit( __METHOD__ );
+			// Fandom-start - make sure no writes are made after startAtomic or we would need to rollback them
+			$cdb->endAtomic( __METHOD__ );
+			// Fandom-end
 			return;
 		}
 		$row = $res->fetchRow();
@@ -512,7 +528,9 @@ class CargoHooks {
 		$categoryAlreadyListed = in_array( $categoryName, $categoriesForPage );
 		// This can be done with a NOT XOR (i.e. XNOR), but let's not make it more confusing.
 		if ( ( $isAdd && $categoryAlreadyListed ) || ( !$isAdd && !$categoryAlreadyListed ) ) {
-			$cdb->commit( __METHOD__ );
+			// Fandom-start
+			$cdb->endAtomic( __METHOD__ );
+			// Fandom-end
 			return;
 		}
 
@@ -538,7 +556,9 @@ class CargoHooks {
 		}
 
 		// End transaction and apply DB changes.
-		$cdb->commit( __METHOD__ );
+		// Fandom-start
+		$cdb->endAtomic( __METHOD__ );
+		// Fandom-end
 	}
 
 	public static function describeDBSchema( DatabaseUpdater $updater ) {

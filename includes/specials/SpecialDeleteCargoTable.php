@@ -27,7 +27,9 @@ class SpecialDeleteCargoTable extends UnlistedSpecialPage {
 	public static function deleteTable( $mainTable, $fieldTables, $fieldHelperTables ) {
 		$cdb = CargoUtils::getDB();
 		try {
-			$cdb->begin( __METHOD__ );
+			// Fandom-start
+			$cdb->startAtomic( __METHOD__ );
+			// Fandom-end
 			foreach ( $fieldTables as $fieldTable ) {
 				$cdb->dropTable( $fieldTable, __METHOD__ );
 			}
@@ -37,7 +39,9 @@ class SpecialDeleteCargoTable extends UnlistedSpecialPage {
 				}
 			}
 			$cdb->dropTable( $mainTable, __METHOD__ );
-			$cdb->commit( __METHOD__ );
+			// Fandom-start
+			$cdb->endAtomic( __METHOD__ );
+			// Fandom-end
 		} catch ( Exception $e ) {
 			throw new MWException( "Caught exception ($e) while trying to drop Cargo table. "
 			. "Please make sure that your database user account has the DROP permission." );

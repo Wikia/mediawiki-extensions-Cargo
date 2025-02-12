@@ -55,9 +55,11 @@ class CargoPopulateTableJob extends Job {
 		// if the table wasn't just dropped and recreated.
 		if ( $this->params['replaceOldRows'] == true ) {
 			$cdb = CargoUtils::getDB();
-			$cdb->begin( __METHOD__ );
+			// Fandom-start
+			$cdb->startAtomic( __METHOD__ );
 			$cdb->delete( $this->params['dbTableName'], [ '_pageID' => $page->getID() ], __METHOD__ );
-			$cdb->commit( __METHOD__ );
+			$cdb->endAtomic( __METHOD__ );
+			// Fandom-end
 		}
 
 		// All we need to do here is set some global variables based

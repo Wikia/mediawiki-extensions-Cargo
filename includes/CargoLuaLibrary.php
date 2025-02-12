@@ -51,6 +51,10 @@ class CargoLuaLibrary extends Scribunto_LuaLibraryBase {
 			$query = CargoSQLQuery::newFromValues( $tables, $fields, $where, $join,
 				$groupBy, $having, $orderBy, $limit, $offset );
 			$rows = $query->run();
+		// Fandom-start PLATFORM-9121 | Do not swallow DB errors in Cargo query
+		} catch ( \Wikimedia\Rdbms\DBError $e ) {
+			throw $e;
+		// Fandom-end
 		} catch ( Exception $e ) {
 			// Allow for error handling within Lua.
 			throw new Scribunto_LuaError( $e->getMessage() );

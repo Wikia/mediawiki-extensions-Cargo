@@ -36,7 +36,9 @@ class CargoSQLQuery {
 	public $mDateFieldPairs = [];
 
 	public function __construct() {
-		$this->mCargoDB = CargoUtils::getDB();
+		// Fandom-start: use replica for reads
+		$this->mCargoDB = CargoUtils::getDB( DB_REPLICA );
+		// Fandom-end
 	}
 
 	/**
@@ -61,7 +63,6 @@ class CargoSQLQuery {
 			$havingStr, $orderByStr, $limitStr, $offsetStr, $allowFieldEscaping );
 
 		$sqlQuery = new CargoSQLQuery();
-		$sqlQuery->mCargoDB = CargoUtils::getDB();
 		$sqlQuery->mTablesStr = $tablesStr;
 		$sqlQuery->setAliasedTableNames();
 		$sqlQuery->mFieldsStr = $fieldsStr;
@@ -1632,7 +1633,9 @@ class CargoSQLQuery {
 					// It's a string.
 					// Escape any HTML, to avoid JavaScript
 					// injections and the like.
-					$resultsRow[$alias] = htmlspecialchars( $curValue );
+					// Fandom-start: PLATFORM-9297 | Don't double-escape single quotes in Cargo results
+					$resultsRow[$alias] = htmlspecialchars( $curValue, ENT_COMPAT );
+					// Fandom-end
 				}
 			}
 			$resultArray[] = $resultsRow;

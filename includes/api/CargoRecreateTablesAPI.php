@@ -76,4 +76,10 @@ class CargoRecreateTablesAPI extends ApiBase {
 		return 'csrf';
 	}
 
+	/**
+	 * Fandom-change: This module requires write access.
+	 */
+	public function isWriteMode() {
+		return true;
+	}
 }

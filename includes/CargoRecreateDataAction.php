@@ -1,6 +1,7 @@
 <?php
 
 use MediaWiki\MediaWikiServices;
+use MediaWiki\Permissions\PermissionManager;
 
 /**
  * Handles the 'recreatedata' action.
@@ -58,7 +59,9 @@ class CargoRecreateDataAction extends Action {
 
 		$user = $obj->getUser();
 		$permissionManager = MediaWikiServices::getInstance()->getPermissionManager();
-		if ( !$permissionManager->userCan( 'recreatecargodata', $user, $title ) ) {
+		// Fandom-start: PLATFORM-9062 | do not use primary on reads
+		if ( !$permissionManager->userCan( 'recreatecargodata', $user, $title, PermissionManager::RIGOR_QUICK ) ) {
+			// Fandom-end
 			return true;
 		}
 

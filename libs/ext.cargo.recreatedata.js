@@ -12,15 +12,16 @@
 
 	var recreateData = new cargo.recreateData();
 
-	var dataDiv = $("div#recreateDataData");
-	var cargoScriptPath = dataDiv.attr("cargoscriptpath");
-	var tableName = dataDiv.attr("tablename");
-	var isSpecialTable = dataDiv.attr("isspecialtable");
-	var isDeclared = dataDiv.attr("isdeclared");
-	var numTotalPages = dataDiv.attr("totalpages");
-	var viewTableURL = dataDiv.attr("viewtableurl");
+	// Fandom-start: use jsConfigVars instead of hidden div
+	var cargoScriptPath = mw.config.get( 'cargoScriptPath' );
+	var tableName = mw.config.get( 'cargoTableName' );
+	var isSpecialTable = mw.config.get( 'cargoIsSpecialTable' );
+	var isDeclared = mw.config.get( 'cargoIsDeclared' );
+	var numTotalPages = mw.config.get( 'cargoTotalPages' );
+	var viewTableURL = mw.config.get( 'cargoViewTableUrl' );
 	var createReplacement = false;
-	var templateData = jQuery.parseJSON( dataDiv.html() );
+	var templateData = mw.config.get( 'cargoTemplateData' );
+	// Fandom-end
 	var numTotalPagesHandled = 0;
 
 	if ( numTotalPages == null ) {
