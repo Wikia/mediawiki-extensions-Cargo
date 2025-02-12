@@ -1,4 +1,7 @@
 <?php
+
+use Wikimedia\Rdbms\DBError;
+
 /**
  * CargoQuery - class for the #cargo_query parser function.
  *
@@ -112,6 +115,10 @@ class CargoQuery {
 				);
 				$queryResultsJustForResultsTitle = $sqlQueryJustForResultsTitle->run();
 			}
+		// Fandom-start PLATFORM-9121 | Do not swallow DB errors in Cargo query
+		} catch ( DBError $e ) {
+			throw $e;
+			// Fandom-end
 		} catch ( Exception $e ) {
 			return CargoUtils::formatError( $e->getMessage() );
 		}
