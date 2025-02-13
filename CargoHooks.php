@@ -217,7 +217,7 @@ class CargoHooks {
 		$cdb = CargoUtils::getDB();
 		// There's a reasonable chance that this table doesn't exist
 		// at all - if so, exit.
-		if ( !$cdb->tableExists( $specialTableName ) ) {
+		if ( !$cdb->tableExists( $specialTableName, __METHOD__ ) ) {
 			return;
 		}
 		$replacementTableName = $specialTableName . '__NEXT';
@@ -236,7 +236,8 @@ class CargoHooks {
 				$specialTableName,
 				$cdb->addIdentifierQuotes( '_rowID' ),
 				$cdb->addIdentifierQuotes( '_ID' ),
-				$cdbPageIDCheck
+				$cdbPageIDCheck,
+				__METHOD__
 			);
 		}
 		$cdb->delete( $specialTableName, $cdbPageIDCheck, __METHOD__ );
