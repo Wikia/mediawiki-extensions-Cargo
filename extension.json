@@ -474,7 +474,7 @@
 			"class": "CargoLinksUpdateHandler"
 		}
 	},
-	"ServiceWiringFiles": ["includes/ServiceWiring.php"],
+	"ServiceWiringFiles": ["ServiceWiring.php"],
 	"config": {
 		"CargoDecimalMark": ".",
 		"CargoDigitGroupingCharacter": ",",
