@@ -12,81 +12,11 @@ use MediaWiki\MediaWikiServices;
 
 class CargoUtils {
 
-	/** @var \Wikimedia\Rdbms\IMaintainableDatabase|null */
-	private static $CargoDB = null;
-
-	/**
-	 * @return \Wikimedia\Rdbms\IMaintainableDatabase
-	 */
-	public static function getDB() {
-		if ( self::$CargoDB != null && self::$CargoDB->isOpen() ) {
-			return self::$CargoDB;
-		}
-
-		global $wgDBuser, $wgDBpassword, $wgDBprefix, $wgDBservers;
-		global $wgCargoDBserver, $wgCargoDBname, $wgCargoDBuser, $wgCargoDBpassword, $wgCargoDBprefix, $wgCargoDBtype, $wgCargoDBfilePath;
-
-		$services = MediaWikiServices::getInstance();
-		$dbr = self::getMainDBForRead();
-		$server = $dbr->getServer();
-		$name = $dbr->getDBname();
-		$type = $dbr->getType();
-
-		// We need $wgCargoDBtype for other functions.
-		if ( $wgCargoDBtype === null ) {
-			$wgCargoDBtype = $type;
-		}
-		$dbServer = $wgCargoDBserver === null ? $server : $wgCargoDBserver;
-		$dbName = $wgCargoDBname === null ? $name : $wgCargoDBname;
-
-		// Server (host), db name, and db type can be retrieved from $dbr via
-		// public methods, but username and password cannot. If these values are
-		// not set for Cargo, get them from either $wgDBservers or wgDBuser and
-		// $wgDBpassword, depending on whether or not there are multiple DB servers.
-		if ( $wgCargoDBuser !== null ) {
-			$dbUsername = $wgCargoDBuser;
-		} elseif ( is_array( $wgDBservers ) && isset( $wgDBservers[0] ) ) {
-			$dbUsername = $wgDBservers[0]['user'];
-		} else {
-			$dbUsername = $wgDBuser;
-		}
-		if ( $wgCargoDBpassword !== null ) {
-			$dbPassword = $wgCargoDBpassword;
-		} elseif ( is_array( $wgDBservers ) && isset( $wgDBservers[0] ) ) {
-			$dbPassword = $wgDBservers[0]['password'];
-		} else {
-			$dbPassword = $wgDBpassword;
-		}
-
-		if ( $wgCargoDBprefix !== null ) {
-			$dbTablePrefix = $wgCargoDBprefix;
-		} else {
-			$dbTablePrefix = $wgDBprefix . 'cargo__';
-		}
-
-		$params = [
-			'host' => $dbServer,
-			'user' => $dbUsername,
-			'password' => $dbPassword,
-			'dbname' => $dbName,
-			'tablePrefix' => $dbTablePrefix,
-		];
-
-		if ( $type === 'sqlite' ) {
-			if ( $wgCargoDBfilePath !== null ) {
-				$params['dbFilePath'] = $wgCargoDBfilePath;
-			} else {
-				$params['dbFilePath'] = $dbr->getDbFilePath();
-			}
-		} elseif ( $type === 'postgres' ) {
-			global $wgDBport;
-			// @TODO - a $wgCargoDBport variable is still needed.
-			$params['port'] = $wgDBport;
-		}
-
-		self::$CargoDB = $services->getDatabaseFactory()->create( $wgCargoDBtype, $params );
-		return self::$CargoDB;
+	// Fandom-start - support primary/replica - related logic was pushed to CargoConnectionProvider
+	public static function getDB( int $dbType = DB_PRIMARY ) {
+		return CargoServices::getCargoConnectionProvider()->getConnection( $dbType );
 	}
+	// Fandom-end
 
 	/**
 	 * Provides a reference to the main (not the Cargo) database for read
@@ -500,13 +430,13 @@ class CargoUtils {
 	}
 
 	public static function getDateFunctions( $dateDBField ) {
-		global $wgCargoDBtype;
-
 		// Unfortunately, date handling in general - and date extraction
 		// specifically - is done differently in almost every DB
 		// system. If support was ever added for SQLite,
 		// that would require special handling as well.
-		if ( $wgCargoDBtype == 'postgres' ) {
+		// Fandom-start
+		if ( CargoServices::getCargoConnectionProvider()->getDBType() == 'postgres' ) {
+			// Fandom-end
 			$yearValue = "DATE_PART('year', $dateDBField)";
 			$monthValue = "DATE_PART('month', $dateDBField)";
 			$dayValue = "DATE_PART('day', $dateDBField)";
@@ -664,9 +594,11 @@ class CargoUtils {
 				// not have a row in cargo_tables - this is
 				// hopefully a rare occurrence.
 				try {
-					$cdb->begin( __METHOD__ );
+					// Fandom-start
+					$cdb->startAtomic( __METHOD__ );
 					$cdb->dropTable( $tableName, __METHOD__ );
-					$cdb->commit( __METHOD__ );
+					$cdb->endAtomic( __METHOD__ );
+					// Fandom-end
 				} catch ( Exception $e ) {
 					throw new MWException( "Caught exception ($e) while trying to drop Cargo table. "
 					. "Please make sure that your database user account has the DROP permission." );
@@ -692,9 +624,11 @@ class CargoUtils {
 			$mainTableAlreadyExists = self::tableFullyExists( $tableNames[0] );
 			foreach ( $tableNames as $curTable ) {
 				try {
-					$cdb->begin( __METHOD__ );
+					// Fandom-start
+					$cdb->startAtomic( __METHOD__ );
 					$cdb->dropTable( $curTable, __METHOD__ );
-					$cdb->commit( __METHOD__ );
+					$cdb->endAtomic( __METHOD__ );
+					// Fandom-end
 				} catch ( Exception $e ) {
 					throw new MWException( "Caught exception ($e) while trying to drop Cargo table. "
 					. "Please make sure that your database user account has the DROP permission." );
@@ -822,7 +756,9 @@ class CargoUtils {
 	}
 
 	public static function createCargoTableOrTables( $cdb, $dbw, $tableName, $tableSchema, $tableSchemaString, $templatePageID ) {
-		$cdb->begin( __METHOD__ );
+		// Fandom-start
+		$cdb->startAtomic( __METHOD__ );
+		// Fandom-end
 		$fieldsInMainTable = [
 			'_ID' => 'Integer',
 			'_pageName' => 'String',
@@ -926,7 +862,9 @@ class CargoUtils {
 		}
 
 		// End transaction and apply DB changes.
-		$cdb->commit( __METHOD__ );
+		// Fandom-start
+		$cdb->endAtomic( __METHOD__ );
+		// Fandom-end
 
 		// Finally, store all the info in the cargo_tables table.
 		$dbw->insert( 'cargo_tables', [
@@ -965,6 +903,9 @@ class CargoUtils {
 				$sqlType = self::fieldTypeToSQLType( $fieldType, $dbType );
 				if ( $fieldName == '_ID' ) {
 					$fieldOptionsText .= ' PRIMARY KEY';
+					// Fandom-start
+					$fieldOptionsText .= ' AUTO_INCREMENT';
+					// Fandom-end
 				} elseif ( $fieldName == '_rowID' ) {
 					$fieldOptionsText .= ' NOT NULL';
 				}
@@ -986,6 +927,14 @@ class CargoUtils {
 		if ( $wgCargoDBRowFormat != null ) {
 			$createSQL .= " ROW_FORMAT=$wgCargoDBRowFormat";
 		}
+		// Fandom-start: set utf8mb4 character set for Cargo tables (UGC-4625).
+		// These tables cannot use the binary charset that other MediaWiki tables use
+		// due to the need to support natural ordering of varchar fields as well as
+		// SQL functions such as REGEXP_LIKE() that do not support binary fields.
+		// Historically, these tables were created with the 3-byte utf8 character set,
+		// which is not sufficient for some characters, such as emoji.
+		$createSQL .= " CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci";
+		// Fandom-end
 		$cdb->query( $createSQL, __METHOD__ );
 
 		// Add an index for any field that's not of type Text,
