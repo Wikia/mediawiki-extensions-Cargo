@@ -1610,7 +1610,20 @@ class CargoSQLQuery {
 			}
 			$realAliasedFieldNames[$alias] = $fieldName;
 		}
-
+		## Fandom-start: PLATFORM-9297 | workaround for case where there is no alias for table name but there are
+		## entries like [ 'table1' => 'table1' ] in mAliasedTableNames. This is causing Mediawiki's SQLPlatform class
+		## to generate invalid SQL queries: SELECT field1 FROM table1 table1
+		## see: SQLPlatform::tableNameWithAlias()
+		if ( str_starts_with ( MW_VERSION, '1.44' ) ) {
+			foreach ( $this->mAliasedTableNames as $tableName => $alias ) {
+				if ( $alias === $tableName ) {
+					unset( $this->mAliasedTableNames[$tableName] );
+					$fullTableName = $this->mCargoDB->addIdentifierQuotes( $this->mCargoDB->getDBname() ) . '.' . $this->mCargoDB->tableName( $tableName );
+					$this->mAliasedTableNames[$fullTableName] = $fullTableName;
+				}
+			}
+		}
+		## Fandom-end
 		$res = $this->mCargoDB->select( $this->mAliasedTableNames, $realAliasedFieldNames, $this->mWhereStr, __METHOD__,
 			$selectOptions, $this->mJoinConds );
 
