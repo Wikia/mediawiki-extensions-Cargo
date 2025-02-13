@@ -508,10 +508,14 @@ class CargoHooks {
 		$pageID = $wikiPage->getId();
 
 		$cdb = CargoUtils::getDB();
-		$cdb->begin( __METHOD__ );
+		// Fandom-start
+		$cdb->startAtomic( __METHOD__ );
+		// Fandom-end
 		$res = $cdb->select( $pageDataTable, '_ID', [ '_pageID' => $pageID ], __METHOD__ );
 		if ( $res->numRows() == 0 ) {
-			$cdb->commit( __METHOD__ );
+			// Fandom-start
+			$cdb->endAtomic( __METHOD__ );
+			// Fandom-end
 			return;
 		}
 		$row = $res->fetchRow();
@@ -524,7 +528,9 @@ class CargoHooks {
 		$categoryAlreadyListed = in_array( $categoryName, $categoriesForPage );
 		// This can be done with a NOT XOR (i.e. XNOR), but let's not make it more confusing.
 		if ( ( $isAdd && $categoryAlreadyListed ) || ( !$isAdd && !$categoryAlreadyListed ) ) {
-			$cdb->commit( __METHOD__ );
+			// Fandom-start
+			$cdb->endAtomic( __METHOD__ );
+			// Fandom-end
 			return;
 		}
 
@@ -550,7 +556,9 @@ class CargoHooks {
 		}
 
 		// End transaction and apply DB changes.
-		$cdb->commit( __METHOD__ );
+		// Fandom-start
+		$cdb->endAtomic( __METHOD__ );
+		// Fandom-end
 	}
 
 	public static function describeDBSchema( DatabaseUpdater $updater ) {
