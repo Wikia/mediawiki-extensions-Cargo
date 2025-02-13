@@ -335,7 +335,9 @@ class CargoDeclare {
 
 		// Validate table name.
 
-		$cdb = CargoUtils::getDB();
+		// Fandom-start
+		$cdb = CargoServices::getCargoConnectionProvider()->getConnection( DB_REPLICA );
+		// Fandom-end
 
 		foreach ( $parentTables as $extraParams ) {
 			$parentTableName = $extraParams['Name'];
@@ -385,14 +387,15 @@ class CargoDeclare {
 		// exists already - otherwise, explain that it needs to be
 		// created.
 		$text = wfMessage( 'cargo-definestable', $tableName )->text();
-		$cdb = CargoUtils::getDB();
 		if ( $cdb->tableExists( $tableName, __METHOD__ ) ) {
 			$ct = SpecialPage::getTitleFor( 'CargoTables' );
 			$pageName = $ct->getPrefixedText() . "/$tableName";
 			$viewTableMsg = wfMessage( 'cargo-cargotables-viewtablelink' )->parse();
 			$text .= " [[$pageName|$viewTableMsg]].";
 		} else {
-			$text .= ' ' . wfMessage( 'cargo-tablenotcreated' )->text();
+			// Fandom-start
+			$text .= "\n\n[" . $parser->getTitle()->getFullURL( [ 'action' => 'recreatedata' ] ) . " " . wfMessage( 'cargo-createdatatable' )->parse() . "]";
+			// Fandom-end
 		}
 
 		// Also link to the replacement table, if it exists.

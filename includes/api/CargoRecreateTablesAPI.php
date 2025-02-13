@@ -76,4 +76,9 @@ class CargoRecreateTablesAPI extends ApiBase {
 		return 'csrf';
 	}
 
+	// Fandom-start
+	public function isWriteMode() {
+		return true;
+	}
+	// Fandom-end
 }

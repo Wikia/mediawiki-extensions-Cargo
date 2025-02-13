@@ -149,7 +149,9 @@ class CargoStore {
 
 		// Always store data in the replacement table if it exists.
 		$cdb = CargoUtils::getDB();
-		$cdb->begin( __METHOD__ );
+		// Fandom-start
+		$cdb->startAtomic( __METHOD__ );
+		// Fandom-end
 		if ( $cdb->tableExists( $tableName . '__NEXT', __METHOD__ ) ) {
 			$tableName .= '__NEXT';
 		}
@@ -162,13 +164,17 @@ class CargoStore {
 			// This table probably has not been created yet -
 			// just exit silently.
 			wfDebugLog( 'cargo', "CargoStore::run() - skipping; Cargo table ($tableName) does not exist.\n" );
-			$cdb->rollback( __METHOD__ );
+			// Fandom-start - make sure no writes are made after startAtomic or we would need to rollback them
+			$cdb->endAtomic( __METHOD__ );
+			// Fandom-end
 			return;
 		}
 		$tableSchema = CargoTableSchema::newFromDBString( $row['table_schema'] );
 
 		$errors = self::blankOrRejectBadData( $cdb, $title, $tableName, $tableFieldValues, $tableSchema );
-		$cdb->commit( __METHOD__ );
+		// Fandom-start
+		$cdb->endAtomic( __METHOD__ );
+		// Fandom-end
 
 		if ( $errors ) {
 			$parserOutput = $parser->getOutput();
@@ -335,6 +341,47 @@ class CargoStore {
 
 		$cdb = CargoUtils::getDB();
 
+		// Fandom-start
+		// Start a transaction for the store
+		$cdb->startAtomic( __METHOD__ );
+
+		// The _position field was only added to list tables in Cargo
+		// 2.1, which means that any list table last created or
+		// re-created before then will not have that field. How to know
+		// whether to populate that field? We go to the first list
+		// table for this main table (there may be more than one), and
+		// query INFORMATION_SCHEMA for that field.
+		$hasPositionField = true;
+		foreach ( $tableSchema->mFieldDescriptions as $fieldName => $fieldDescription ) {
+			if ( $fieldDescription->mIsList ) {
+				$listFieldTableName = $tableName . '__' . $fieldName;
+				$hasPositionField = $cdb->fieldExists( $listFieldTableName, '_position' );
+				break;
+			}
+		}
+
+		// Determine whether we're using AUTO_INCREMENT
+		$row = $cdb->selectRow(
+			'INFORMATION_SCHEMA.TABLES',
+			'AUTO_INCREMENT',
+			[
+				'TABLE_NAME' => $cdb->tablePrefix() . $tableName,
+				'TABLE_SCHEMA' => $cdb->getDBname(),
+			]
+		);
+		if ( $row == false || $row->AUTO_INCREMENT == null ) {
+			// Set _ID manually if we're not using AUTO_INCREMENT.
+			// This is likely to cause errors when cargo_store is being ran concurrently.
+			$res = $cdb->select( $tableName, 'MAX(' .
+				$cdb->addIdentifierQuotes( '_ID' ) . ') AS "ID"' );
+			$row = $res->fetchRow();
+			$curRowID = $row['ID'] + 1;
+			$tableFieldValues['_ID'] = $curRowID;
+		} else {
+			$curRowID = null;
+		}
+		// Fandom-end
+
 		// Somewhat of a @HACK - recreating a Cargo table from the web
 		// interface can lead to duplicate rows, due to the use of jobs.
 		// So before we store this data, check if a row with this
@@ -348,39 +395,12 @@ class CargoStore {
 		// solution, this workaround will be helpful.
 		$rowAlreadyExists = self::doesRowAlreadyExist( $cdb, $title, $tableName, $tableFieldValues, $tableSchema );
 		if ( $rowAlreadyExists ) {
+			// Fandom-start
+			$cdb->endAtomic( __METHOD__ );
+			// Fandom-end
 			return;
 		}
 
-		// The _position field was only added to list tables in Cargo
-		// 2.1, which means that any list table last created or
-		// re-created before then will not have that field. How to know
-		// whether to populate that field? We go to the first list
-		// table for this main table (there may be more than one), query
-		// that field, and see whether it throws an exception. (We'll
-		// assume that either all the list tables for this main table
-		// have a _position field, or none do.)
-		$hasPositionField = true;
-		foreach ( $tableSchema->mFieldDescriptions as $fieldName => $fieldDescription ) {
-			if ( $fieldDescription->mIsList ) {
-				$listFieldTableName = $tableName . '__' . $fieldName;
-				try {
-					$cdb->select( $listFieldTableName, 'COUNT(' .
-						$cdb->addIdentifierQuotes( '_position' ) . ')', '', __METHOD__ );
-				} catch ( Exception $e ) {
-					$hasPositionField = false;
-				}
-				break;
-			}
-		}
-
-		// We put the retrieval of the row ID, and the saving of the new row, into a
-		// single DB transaction, to avoid "collisions".
-		$cdb->begin( __METHOD__ );
-
-		$maxID = $cdb->selectField( $tableName,
-			'MAX(' . $cdb->addIdentifierQuotes( '_ID' ) . ')', '', __METHOD__ );
-		$curRowID = $maxID + 1;
-		$tableFieldValues['_ID'] = $curRowID;
 		$fieldTableFieldValues = [];
 
 		// For each field that holds a list of values, also add its
@@ -451,12 +471,21 @@ class CargoStore {
 		// Insert the current data into the main table.
 		CargoUtils::escapedInsert( $cdb, $tableName, $tableFieldValues );
 
-		// End transaction and apply DB changes.
-		$cdb->commit( __METHOD__ );
+		// Fandom-start
+		if ( $curRowID == null ) {
+			$curRowID = $cdb->insertId();
+		}
+		// Fandom-end
 
 		// Now, store the data for all the "field tables".
 		foreach ( $fieldTableFieldValues as $tableNameAndValues ) {
 			[ $fieldTableName, $fieldValues ] = $tableNameAndValues;
+			// Fandom-start
+			// Update _rowID if using AUTO_INCREMENT.
+			if ( array_key_exists( '_rowID', $fieldValues ) && $fieldValues['_rowID'] == null ) {
+				$fieldValues['_rowID'] = $curRowID;
+			}
+			// Fandom-end
 			CargoUtils::escapedInsert( $cdb, $fieldTableName, $fieldValues );
 		}
 
@@ -502,6 +531,11 @@ class CargoStore {
 				CargoUtils::escapedInsert( $cdb, $fileTableName, $fieldValues );
 			}
 		}
+
+		// Fandom-start
+		// End transaction and apply DB changes.
+		$cdb->endAtomic( __METHOD__ );
+		// Fandom-end
 	}
 
 	/**
