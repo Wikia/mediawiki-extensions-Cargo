@@ -797,6 +797,8 @@ class CargoUtils {
 			}
 		}
 
+		var_dump( $tableName );
+		var_dump( $fieldsInMainTable );
 		self::createTable( $cdb, $tableName, $fieldsInMainTable );
 
 		// Now also create tables for each of the 'list' fields,
