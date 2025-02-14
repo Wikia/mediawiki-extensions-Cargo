@@ -15,7 +15,7 @@ jobs:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v4
       - id: set-matrix
-        run: echo "::set-output name=matrix::{\"include\":[{\"php_version\":\"8.2\",\"mw\":\"${{ github.event.pull_request.base.ref || 'master' }}\"}]}"
+        run: echo "::set-output name=matrix::{\"include\":[{\"php_version\":\"8.2\",\"mw\":\"${{ github.event.pull_request.base.ref }}\"}]}"
 
   build:
     needs: matrix_prep
