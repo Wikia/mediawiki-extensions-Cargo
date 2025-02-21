@@ -2,6 +2,7 @@
 
 use MediaWiki\Config\ServiceOptions;
 use Wikimedia\Rdbms\DatabaseFactory;
+use Wikimedia\Rdbms\DatabaseMySQL;
 use Wikimedia\Rdbms\DBConnRef;
 use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\ILBFactory;
@@ -151,7 +152,7 @@ class CargoConnectionProvider {
 			$dbw = $ref->getValue( $dbw );
 		}
 
-		if ( $dbw instanceof DatabaseMysqli ) {
+		if ( $dbw instanceof DatabaseMySQL ) {
 			// Force open the database connection so that we can obtain the underlying native connection handle.
 			$dbw->ping();
 
