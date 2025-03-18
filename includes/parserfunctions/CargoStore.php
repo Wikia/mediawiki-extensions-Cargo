@@ -191,7 +191,9 @@ class CargoStore {
 			[ 'table_name' => $tableName, 'page_id' => $pageID ], __METHOD__ );
 		if ( !$res->fetchRow() ) {
 			$dbw = CargoUtils::getMainDBForWrite();
-			$dbw->insert( 'cargo_pages', [ 'table_name' => $tableName, 'page_id' => $pageID ], __METHOD__ );
+			// Fandom change - PLATFORM-10854 - INSERT IGNORE prevents duplicate key errors
+			$dbw->insert( 'cargo_pages', [ 'table_name' => $tableName, 'page_id' => $pageID ], __METHOD__,
+				[ 'IGNORE' ] );
 		}
 	}
 
