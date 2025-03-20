@@ -187,12 +187,11 @@ class CargoStore {
 
 		// Finally, add a record of this to the cargo_pages table, if
 		// necessary.
-		$res = $dbr->select( 'cargo_pages', 'page_id',
-			[ 'table_name' => $tableName, 'page_id' => $pageID ], __METHOD__ );
-		if ( !$res->fetchRow() ) {
-			$dbw = CargoUtils::getMainDBForWrite();
-			$dbw->insert( 'cargo_pages', [ 'table_name' => $tableName, 'page_id' => $pageID ], __METHOD__ );
-		}
+		// Fandom change - start - PLATFORM-10856 - skip checking replica and use INSERT IGNORE
+		$dbw = CargoUtils::getMainDBForWrite();
+		$dbw->insert( 'cargo_pages', [ 'table_name' => $tableName, 'page_id' => $pageID ], __METHOD__,
+			[ 'IGNORE' ] );
+		// Fandom change - end
 	}
 
 	/**
