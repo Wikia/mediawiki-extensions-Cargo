@@ -1195,7 +1195,7 @@ class CargoSQLQuery {
 				$tableUsedForJoining = $join['table2'];
 				if ( array_search( $tableUsedForJoining, $orderedTables ) ) {
 					$orderedTables[] = $joinedTable;
-					unset( $key );
+					unset( $joins[$key] );
 				}
 			}
 		}
