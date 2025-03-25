@@ -679,11 +679,15 @@ class CargoSQLQuery {
 				} else {
 					$description = $this->mTableSchemas[$actualTableName]->mFieldDescriptions[$fieldName];
 				}
-			} elseif ( substr( $fieldName, -5 ) == '__lat' || substr( $fieldName, -5 ) == '__lon' ) {
+				// Fandom-start: $filedName is nullable
+			} elseif ( $fieldName && ( substr( $fieldName, -5 ) == '__lat' || substr( $fieldName, -5 ) == '__lon' ) ) {
+				// Fandom-end
 				// Special handling for lat/lon helper fields.
 				$description->mType = 'Coordinates part';
 				$tableName = '';
-			} elseif ( substr( $fieldName, -11 ) == '__precision' ) {
+				// Fandom-start: $filedName is nullable
+			} elseif ( $fieldName && substr( $fieldName, -11 ) == '__precision' ) {
+				// Fandom-end
 				// Special handling for lat/lon helper fields.
 				// @TODO - we need validation on
 				// __lat, __lon and __precision fields,
@@ -1024,18 +1028,9 @@ class CargoSQLQuery {
 		// joins - match the order in $this->mAliasedTableNames to the
 		// order of the tables within the joins.
 		if ( count( $this->mAliasedTableNames ) > 1 ) {
-			$orderedTableAliases = [];
-			foreach ( $this->mCargoJoinConds as $joinCond ) {
-				$table1 = $joinCond['table1'];
-				$table2 = $joinCond['table2'];
-				if ( !in_array( $table1, $orderedTableAliases ) ) {
-					$orderedTableAliases[] = $table1;
-				}
-				if ( !in_array( $table2, $orderedTableAliases ) ) {
-					$orderedTableAliases[] = $table2;
-				}
-			}
-
+			// Fandom-start. PLATFORM-10866: Reorder tables to join tables in correct order
+			$orderedTableAliases = $this->getOrderedTables();
+			// Fandom-end
 			uksort( $this->mAliasedTableNames, static function ( $key1, $key2 ) use ( $orderedTableAliases ) {
 				return ( array_search( $key1, $orderedTableAliases ) - array_search( $key2, $orderedTableAliases ) );
 			} );
@@ -1155,6 +1150,45 @@ class CargoSQLQuery {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Fandom-start: PLATFORM-10866: Reorder tables to join tables in correct order
+	 * Join condition might depend on another joined tables.
+	 * We have to make sure to provide them in correct order.
+	 */
+	private function getOrderedTables(): array {
+		$joins = $this->mCargoJoinConds;
+		// These tables are required by join conditions
+		$tablesUsedForJoining = [];
+		// These tables are required by join conditions
+		$joinedTables = [];
+		foreach ( $joins as $joinCond ) {
+			$tablesUsedForJoining[] = $joinCond['table1'];
+			$joinedTables[] = $joinCond['table2'];
+		}
+		$orderedTables = array_diff( $tablesUsedForJoining, $joinedTables );
+
+		// Make sure we break the loop eventually
+		$remainingRuns = count( $joins );
+		while ( count( $joins ) && $remainingRuns > 0 ) {
+			$remainingRuns--;
+			foreach ( $joins as $key => $join ) {
+				$joinedTable = $join['table1'];
+				if ( array_search( $joinedTable, $orderedTables ) ) {
+					unset( $joins[$key] );
+					continue;
+				}
+
+				$tableUsedForJoining = $join['table2'];
+				if ( array_search( $tableUsedForJoining, $orderedTables ) ) {
+					$orderedTables[] = $joinedTable;
+					unset( $joins[$key] );
+				}
+			}
+		}
+
+		return $orderedTables;
 	}
 
 	/**
