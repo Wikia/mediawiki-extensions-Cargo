@@ -71,7 +71,7 @@ class CargoFilter {
 			return null;
 		}
 
-		$cdb = CargoUtils::getDB();
+		$cdb = CargoUtils::getDB( DB_REPLICA );
 		$dbType = $cdb->getType();
 		if ( $this->fieldDescription->mIsList ) {
 			$fieldTableName = $this->tableName . '__' . $this->name;
@@ -126,7 +126,7 @@ class CargoFilter {
 	 */
 	public function getQueryParts( $fullTextSearchTerm, $appliedFilters, $tableNames = [],
 			$joinConds = [] ) {
-		$cdb = CargoUtils::getDB();
+		$cdb = CargoUtils::getDB( DB_REPLICA );
 
 		if ( !$tableNames ) {
 			$tableNames = [ $this->tableName => $this->tableAlias ];
@@ -195,7 +195,7 @@ class CargoFilter {
 	 */
 	public function getTimePeriodValues( $fullTextSearchTerm, $appliedFilters, $mainTableAlias = null,
 			$tableNames = [], $joinConds = [] ) {
-		$cdb = CargoUtils::getDB();
+		$cdb = CargoUtils::getDB( DB_REPLICA );
 
 		$possible_dates = [];
 		if ( $this->fieldDescription->mIsList ) {
@@ -310,7 +310,7 @@ class CargoFilter {
 	 */
 	public function getAllValues( $fullTextSearchTerm, $appliedFilters, $isApplied = false,
 			$mainTableAlias = null, $tableNames = [], $join_conds = [] ) {
-		$cdb = CargoUtils::getDB();
+		$cdb = CargoUtils::getDB( DB_REPLICA );
 
 		[ $tableNames, $conds, $joinConds ] = $this->getQueryParts( $fullTextSearchTerm,
 			$appliedFilters, $tableNames, $join_conds );
