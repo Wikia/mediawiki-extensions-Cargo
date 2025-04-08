@@ -233,7 +233,7 @@ END;
 
 END;
 		}
-		$cdb = CargoUtils::getDB();
+		$cdb = CargoUtils::getDB( DB_REPLICA );
 		foreach ( $tables as $table ) {
 			if ( $cdb->tableExists( $table, __METHOD__ ) == false ) {
 				$text .= '<li class="tableName error">' . $table . "</li>";
@@ -1414,7 +1414,7 @@ END;
 	}
 
 	public function getInitialQueryParts() {
-		$cdb = CargoUtils::getDB();
+		$cdb = CargoUtils::getDB( DB_REPLICA );
 		if ( $this->isReplacementTable ) {
 			$mainTableName = $this->tableName . '__NEXT';
 		} else {
@@ -1550,7 +1550,7 @@ END;
 	}
 
 	public function getQueryInfo() {
-		$cdb = CargoUtils::getDB();
+		$cdb = CargoUtils::getDB( DB_REPLICA );
 
 		[ $tableNames, $joinConds ] = $this->getInitialQueryParts();
 
@@ -1908,7 +1908,7 @@ END;
 
 	public static function getFullTextSearchQueryParts( $searchTerm, $mainTableName, $mainTableAlias,
 			$searchablePages, $searchableFiles ) {
-		$cdb = CargoUtils::getDB();
+		$cdb = CargoUtils::getDB( DB_REPLICA );
 
 		$tableNames = [];
 		$conds = [];
@@ -1969,7 +1969,7 @@ END;
 	}
 
 	public function getOrderFields() {
-		$cdb = CargoUtils::getDB();
+		$cdb = CargoUtils::getDB( DB_REPLICA );
 		return [ CargoUtils::escapedFieldName( $cdb, [ $this->tableAlias => $this->tableName ],
 			'_pageName' ) ];
 	}
