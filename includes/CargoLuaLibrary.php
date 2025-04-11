@@ -53,7 +53,7 @@ class CargoLuaLibrary extends Scribunto_LuaLibraryBase {
 			$rows = $query->run();
 		// Fandom-start PLATFORM-9121 | Do not swallow DB errors in Cargo query
 		} catch ( \Wikimedia\Rdbms\DBError $e ) {
-			throw $e;
+			throw new Scribunto_LuaError( $e->getMessage() );	
 		// Fandom-end
 		} catch ( Exception $e ) {
 			// Allow for error handling within Lua.
