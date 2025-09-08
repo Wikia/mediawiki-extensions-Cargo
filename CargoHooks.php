@@ -261,6 +261,12 @@ class CargoHooks {
 		RevisionRecord $revisionRecord,
 		EditResult $editResult
 	) {
+		// Fandom-start
+		if ( $wikiPage->isRedirect() ) {
+			return;
+		}
+		// Fandom-end
+
 		// First, delete the existing data.
 		$pageID = $wikiPage->getID();
 		self::deletePageFromSystem( $pageID );
