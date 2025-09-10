@@ -39,7 +39,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: wikimedia/mediawiki
-          ref: ${{ matrix.mw }}
+          ref: cde427687085167b05e133689307c6e6854be700
 
       - name: Checkout Cargo extension
         uses: actions/checkout@v3
