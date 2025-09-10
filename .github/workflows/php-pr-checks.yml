@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v4
       - id: set-matrix
         # TODO migration: bump php_version and mw version with each UCP upgrade
-        run: echo "::set-output name=matrix::{\"include\":[{\"php_version\":\"8.2\",\"mw\":\"REL1_43\"}]}"
+        run: echo "::set-output name=matrix::{\"include\":[{\"php_version\":\"8.3\",\"mw\":\"REL1_43\"}]}"
 
   build:
     needs: matrix_prep
@@ -80,4 +80,4 @@ jobs:
         run: php maintenance/update.php --quick
 
       - name: Run PHPUnit tests
-        run: php tests/phpunit/phpunit.php extensions/Cargo/tests
+        run: composer phpunit extensions/Cargo/tests
