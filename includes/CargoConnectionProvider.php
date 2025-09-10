@@ -57,6 +57,13 @@ class CargoConnectionProvider {
 	 * Get a database connection for accessing Cargo data.
 	 */
 	public function getConnection( int $dbType ): IDatabase {
+		if ( $dbType === 1_000_000 ) {
+			$dbType = in_array(
+				\MediaWiki\MediaWikiServices::getInstance()->getMainConfig()->get( 'CityId' ),
+				[ 2293615, 3743000 ] // PLATFORM-11312: disable ROAA on lol.fandom.com
+			) ? DB_PRIMARY : DB_REPLICA;
+		}
+
 		$cluster = $this->serviceOptions->get( 'CargoDBCluster' );
 
 		// If a cluster is specified, let MediaWiki's DBAL manage the lifecycle of Cargo-related connections.
