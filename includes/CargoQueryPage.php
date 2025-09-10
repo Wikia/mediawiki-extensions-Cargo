@@ -112,7 +112,7 @@ class CargoQueryPage extends QueryPage {
 
 		// Field aliases need to have quotes placed around them
 		// before running the query.
-		$cdb = CargoUtils::getDB( DB_REPLICA );
+		$cdb = CargoUtils::getDB( 1_000_000 );
 		$aliasedFieldNames = [];
 		foreach ( $this->sqlQuery->mAliasedFieldNames as $alias => $fieldName ) {
 			// If it's really a field name, add quotes around it.
