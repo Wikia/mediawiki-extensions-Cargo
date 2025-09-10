@@ -39,7 +39,7 @@ class CargoPageValues extends IncludableSpecialPage {
 
 		$tableNames = [];
 
-		$cdb = CargoUtils::getDB( DB_REPLICA );
+		$cdb = CargoUtils::getDB();
 		if ( $cdb->tableExists( '_pageData__NEXT', __METHOD__ ) ) {
 			$tableNames[] = '_pageData__NEXT';
 		} elseif ( $cdb->tableExists( '_pageData', __METHOD__ ) ) {
@@ -171,7 +171,7 @@ class CargoPageValues extends IncludableSpecialPage {
 	}
 
 	public function getRowsForPageInTable( $tableName ) {
-		$cdb = CargoUtils::getDB( DB_REPLICA );
+		$cdb = CargoUtils::getDB();
 
 		$sqlQuery = new CargoSQLQuery();
 		$sqlQuery->mAliasedTableNames = [ $tableName => $tableName ];
