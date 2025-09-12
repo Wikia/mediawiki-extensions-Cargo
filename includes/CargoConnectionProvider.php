@@ -60,7 +60,7 @@ class CargoConnectionProvider {
 		if ( $dbType === 1_000_000 ) {
 			$dbType = in_array(
 				\MediaWiki\MediaWikiServices::getInstance()->getMainConfig()->get( 'CityId' ),
-				[ 2293615, 3743000 ] // PLATFORM-11312: disable ROAA on lol.fandom.com
+				[ 2293615, 3743000, 3621839 ] // PLATFORM-11312: disable ROAA on lol.fandom.com
 			) ? DB_PRIMARY : DB_REPLICA;
 		}
 
