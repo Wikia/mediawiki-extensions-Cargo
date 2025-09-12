@@ -491,6 +491,10 @@ class CargoTables extends IncludableSpecialPage {
 		$cdb = CargoUtils::getDB();
 		$tableNames = CargoUtils::getTables();
 
+		// Fandom-start
+		$allTableNames = CargoUtils::getAllTables();
+		// Fandom-end
+
 		// Move the "special" tables into a separate array.
 		$existingSpecialTables = [];
 		foreach ( $tableNames as $tableIndex => $tableName ) {
@@ -505,7 +509,10 @@ class CargoTables extends IncludableSpecialPage {
 		if ( $wgCargoTablesPrioritizeReplacements ) {
 			foreach ( $tableNames as $tableIndex => $tableName ) {
 				$possibleReplacementTable = $tableName . '__NEXT';
-				if ( $cdb->tableExists( $possibleReplacementTable, __METHOD__ ) ) {
+				// Fandom-start PLATFORM-10996 Special:CargoTables returns 503 when ROAA res is enabled
+				// check for the replacement table in our in-memory list instead of the database.
+				if ( in_array( $possibleReplacementTable, $allTableNames ) ) {
+					// Fandom-end
 					unset( $tableNames[$tableIndex] );
 					array_unshift( $tableNames, $tableName );
 				}

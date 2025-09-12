@@ -149,6 +149,20 @@ class CargoUtils {
 		return $tableNames;
 	}
 
+	// Fandom-start
+	public static function getAllTables() {
+		$dbr = self::getMainDBForRead();
+		$res = $dbr->select( 'cargo_tables', 'main_table', '', __METHOD__ );
+
+		$allTableNames = [];
+		foreach ( $res as $row ) {
+			$allTableNames[] = $row->main_table;
+		}
+
+		return $allTableNames;
+	}
+	// Fandom-end
+
 	public static function getParentTables( $tableName ) {
 		$parentTables = [];
 		$dbr = self::getMainDBForRead();
