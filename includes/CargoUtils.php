@@ -661,7 +661,7 @@ class CargoUtils {
 			return false;
 		}
 
-		$cdb = self::getDB( DB_REPLICA );
+		$cdb = self::getDB();
 		return $cdb->tableExists( $tableName, __METHOD__ );
 	}
 
