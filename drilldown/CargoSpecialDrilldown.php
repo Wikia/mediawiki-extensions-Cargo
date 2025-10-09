@@ -62,7 +62,7 @@ class CargoSpecialDrilldown extends IncludableSpecialPage {
 			$mainTable .= '__NEXT';
 		}
 
-		$cdb = CargoUtils::getDB();
+		$cdb = CargoUtils::getDB( 1_000_000 );
 
 		// This check is necessary because getTableSchemas(), below,
 		// for some reason returns a false positive when an alternate
