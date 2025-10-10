@@ -283,15 +283,29 @@ class CargoHooks {
 		// Even though the page will get parsed again after the save,
 		// we need to parse it here anyway, for the settings we
 		// added to remain set.
-		CargoStore::$settings['origin'] = 'page save';
-		CargoUtils::parsePageForStorage(
-			$wikiPage->getTitle(),
-			$revisionRecord->getContent( SlotRecord::MAIN )->getText()
-		);
 
-		// Also, save data to any relevant "special tables", if they
-		// exist.
-		self::saveToSpecialTables( $wikiPage->getTitle() );
+        // Fandom-start
+        // Issue: CargoStore::$settings was set globally and leaked into subsequent parses
+        // (e.g. jobs/Scribunto after move/save), leading to unintended storeTable() behavior
+        // or duplicates. We must scope the setting to THIS single parse only.
+        // @see https://fandom.atlassian.net/browse/UGC-6792
+        $previousSettings = CargoStore::$settings;
+        CargoStore::$settings = array_merge( $previousSettings, [
+            'origin' => 'page save',
+        ] );
+
+		try {
+            CargoUtils::parsePageForStorage(
+                $wikiPage->getTitle(),
+                $revisionRecord->getContent( SlotRecord::MAIN )->getText()
+            );
+            // Also, save data to any relevant "special tables", if they
+            // exist.
+            self::saveToSpecialTables( $wikiPage->getTitle() );
+        } finally {
+            CargoStore::$settings = $previousSettings;
+        }
+        // Fandom-end
 
 		// Invalidate pages that reference this page in their Cargo query results.
 		CargoBackLinks::purgePagesThatQueryThisPage( $pageID );
