@@ -289,12 +289,9 @@ class CargoHooks {
         // (e.g. jobs/Scribunto after move/save), leading to unintended storeTable() behavior
         // or duplicates. We must scope the setting to THIS single parse only.
         // @see https://fandom.atlassian.net/browse/UGC-6792
-        $previousSettings = CargoStore::$settings;
-        CargoStore::$settings = array_merge( $previousSettings, [
+        self::withCargoSettings( [
             'origin' => 'page save',
-        ] );
-
-		try {
+        ], function() use ( $wikiPage, $revisionRecord ) {
             CargoUtils::parsePageForStorage(
                 $wikiPage->getTitle(),
                 $revisionRecord->getContent( SlotRecord::MAIN )->getText()
@@ -302,9 +299,7 @@ class CargoHooks {
             // Also, save data to any relevant "special tables", if they
             // exist.
             self::saveToSpecialTables( $wikiPage->getTitle() );
-        } finally {
-            CargoStore::$settings = $previousSettings;
-        }
+        } );
         // Fandom-end
 
 		// Invalidate pages that reference this page in their Cargo query results.
@@ -398,47 +393,25 @@ class CargoHooks {
 		}
 		$dbw = CargoUtils::getMainDBForWrite();
 		$cdb = CargoUtils::getDB();
-		// Fandom-start
-		$cdb->startAtomic( __METHOD__ );
-		// Fandom-end
 
-		$res = $dbw->select( 'cargo_pages', 'table_name', [ 'page_id' => $pageid ], __METHOD__ );
-		foreach ( $res as $row ) {
-			$curMainTable = $row->table_name;
-			$cdb->update( $curMainTable,
-				[
-					$cdb->addIdentifierQuotes( '_pageName' ) => $newPageName,
-					$cdb->addIdentifierQuotes( '_pageTitle' ) => $newPageTitle,
-					$cdb->addIdentifierQuotes( '_pageNamespace' ) => $newPageNamespace
-				],
-				[ $cdb->addIdentifierQuotes( '_pageID' ) => $pageid ],
-				__METHOD__
-			);
-		}
-
-		// Update the page title in the "general data" tables.
-		$generalTables = [ '_pageData', '_fileData' ];
-		foreach ( $generalTables as $generalTable ) {
-			if ( $cdb->tableExists( $generalTable, __METHOD__ ) ) {
-				// Update in the replacement table, if one exists.
-				if ( $cdb->tableExists( $generalTable . '__NEXT', __METHOD__ ) ) {
-					$generalTable = $generalTable . '__NEXT';
-				}
-				$cdb->update( $generalTable,
-					[
-						$cdb->addIdentifierQuotes( '_pageName' ) => $newPageName,
-						$cdb->addIdentifierQuotes( '_pageTitle' ) => $newPageTitle,
-						$cdb->addIdentifierQuotes( '_pageNamespace' ) => $newPageNamespace
-					],
-					[ $cdb->addIdentifierQuotes( '_pageID' ) => $pageid ],
-					__METHOD__
-				);
-			}
-		}
-
-		// Fandom-start
-		$cdb->endAtomic( __METHOD__ );
-		// Fandom-end
+        // Fandom-start
+        // Issue: for example lol.fandom.com wiki has dynamic values based on page title in Cargo fields
+        // They cannot be easily updated on page move, so we delete and re-store all data for the page
+        // This will mitigate issues with incorrect data displayed in Cargo queries after page move
+        self::deletePageFromSystem( $pageid );
+        self::withCargoSettings( [
+            'origin' => 'page move',
+        ], function() use ( $new ) {
+            $wikiPage = CargoUtils::makeWikiPage( $new );
+            CargoUtils::parsePageForStorage(
+                $new,
+                $wikiPage->getContent( SlotRecord::MAIN )->getText()
+            );
+            // Also, save data to any relevant "special tables", if they
+            // exist.
+            self::saveToSpecialTables( $wikiPage->getTitle() );
+        } );
+        // Fandom-end
 
 		// Save data for the original page (now a redirect).
 		if ( $redirid != 0 ) {
@@ -447,6 +420,19 @@ class CargoHooks {
 			CargoPageData::storeValuesForPage( $oldTitle, $useReplacementTable );
 		}
 	}
+
+    // Fandom-start
+    private static function withCargoSettings( array $settings, callable $fn ) {
+        $previousSettings = CargoStore::$settings;
+        CargoStore::$settings = $settings;
+        try {
+            return $fn();
+        }
+        finally {
+            CargoStore::$settings = $previousSettings;
+        }
+    }
+    // Fandom-end
 
 	/**
 	 * Deletes all Cargo data about a page, if the page has been deleted.
