@@ -421,7 +421,7 @@ class CargoHooks {
 		}
 	}
 
-	// Fandom-start
+	/** Fandom-start */
 	private static function withCargoSettings( array $settings, callable $fn ) {
 		$previousSettings = CargoStore::$settings;
 		CargoStore::$settings = $settings;
@@ -432,7 +432,7 @@ class CargoHooks {
 		}
 	}
 
-	// Fandom-end
+	/** Fandom-end */
 
 	/**
 	 * Deletes all Cargo data about a page, if the page has been deleted.
