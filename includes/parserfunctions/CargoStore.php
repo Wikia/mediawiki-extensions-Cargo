@@ -402,7 +402,7 @@ class CargoStore {
 				'TABLE_NAME' => $cdb->tablePrefix() . $tableName,
 				'TABLE_SCHEMA' => $cdb->getDBname(),
 			],
-            __METHOD__
+			__METHOD__
 		);
 		if ( $row == false || $row->AUTO_INCREMENT == null ) {
 			// Set _ID manually if we're not using AUTO_INCREMENT.

@@ -284,23 +284,23 @@ class CargoHooks {
 		// we need to parse it here anyway, for the settings we
 		// added to remain set.
 
-        // Fandom-start
-        // Issue: CargoStore::$settings was set globally and leaked into subsequent parses
-        // (e.g. jobs/Scribunto after move/save), leading to unintended storeTable() behavior
-        // or duplicates. We must scope the setting to THIS single parse only.
-        // @see https://fandom.atlassian.net/browse/UGC-6792
-        self::withCargoSettings( [
-            'origin' => 'page save',
-        ], function() use ( $wikiPage, $revisionRecord ) {
-            CargoUtils::parsePageForStorage(
-                $wikiPage->getTitle(),
-                $revisionRecord->getContent( SlotRecord::MAIN )->getText()
-            );
-            // Also, save data to any relevant "special tables", if they
-            // exist.
-            self::saveToSpecialTables( $wikiPage->getTitle() );
-        } );
-        // Fandom-end
+		// Fandom-start
+		// Issue: CargoStore::$settings was set globally and leaked into subsequent parses
+		// (e.g. jobs/Scribunto after move/save), leading to unintended storeTable() behavior
+		// or duplicates. We must scope the setting to THIS single parse only.
+		// @see https://fandom.atlassian.net/browse/UGC-6792
+		self::withCargoSettings( [
+			'origin' => 'page save',
+		], function () use ( $wikiPage, $revisionRecord ) {
+			CargoUtils::parsePageForStorage(
+				$wikiPage->getTitle(),
+				$revisionRecord->getContent( SlotRecord::MAIN )->getText()
+			);
+			// Also, save data to any relevant "special tables", if they
+			// exist.
+			self::saveToSpecialTables( $wikiPage->getTitle() );
+		} );
+		// Fandom-end
 
 		// Invalidate pages that reference this page in their Cargo query results.
 		CargoBackLinks::purgePagesThatQueryThisPage( $pageID );
@@ -394,24 +394,24 @@ class CargoHooks {
 		$dbw = CargoUtils::getMainDBForWrite();
 		$cdb = CargoUtils::getDB();
 
-        // Fandom-start
-        // Issue: for example lol.fandom.com wiki has dynamic values based on page title in Cargo fields
-        // They cannot be easily updated on page move, so we delete and re-store all data for the page
-        // This will mitigate issues with incorrect data displayed in Cargo queries after page move
-        self::deletePageFromSystem( $pageid );
-        self::withCargoSettings( [
-            'origin' => 'page move',
-        ], function() use ( $new ) {
-            $wikiPage = CargoUtils::makeWikiPage( $new );
-            CargoUtils::parsePageForStorage(
-                $new,
-                $wikiPage->getContent( SlotRecord::MAIN )->getText()
-            );
-            // Also, save data to any relevant "special tables", if they
-            // exist.
-            self::saveToSpecialTables( $wikiPage->getTitle() );
-        } );
-        // Fandom-end
+		// Fandom-start
+		// Issue: for example lol.fandom.com wiki has dynamic values based on page title in Cargo fields
+		// They cannot be easily updated on page move, so we delete and re-store all data for the page
+		// This will mitigate issues with incorrect data displayed in Cargo queries after page move
+		self::deletePageFromSystem( $pageid );
+		self::withCargoSettings( [
+			'origin' => 'page move',
+		], function () use ( $new ) {
+			$wikiPage = CargoUtils::makeWikiPage( $new );
+			CargoUtils::parsePageForStorage(
+				$new,
+				$wikiPage->getContent( SlotRecord::MAIN )->getText()
+			);
+			// Also, save data to any relevant "special tables", if they
+			// exist.
+			self::saveToSpecialTables( $wikiPage->getTitle() );
+		} );
+		// Fandom-end
 
 		// Save data for the original page (now a redirect).
 		if ( $redirid != 0 ) {
@@ -421,18 +421,18 @@ class CargoHooks {
 		}
 	}
 
-    // Fandom-start
-    private static function withCargoSettings( array $settings, callable $fn ) {
-        $previousSettings = CargoStore::$settings;
-        CargoStore::$settings = $settings;
-        try {
-            return $fn();
-        }
-        finally {
-            CargoStore::$settings = $previousSettings;
-        }
-    }
-    // Fandom-end
+	// Fandom-start
+	private static function withCargoSettings( array $settings, callable $fn ) {
+		$previousSettings = CargoStore::$settings;
+		CargoStore::$settings = $settings;
+		try {
+			return $fn();
+		} finally {
+			CargoStore::$settings = $previousSettings;
+		}
+	}
+
+	// Fandom-end
 
 	/**
 	 * Deletes all Cargo data about a page, if the page has been deleted.
