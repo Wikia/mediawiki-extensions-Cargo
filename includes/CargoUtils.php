@@ -123,6 +123,26 @@ class CargoUtils {
 		$out->addWikiTextAsInterface( '<div class="error">' . $message->plain() . '</div>' );
 	}
 
+	public static function getExistingTables( $tableNames ) {
+		$dbr = self::getMainDBForRead();
+		$res = $dbr->newSelectQueryBuilder()
+			->select( 'table_name' )
+			->table( 'information_schema.tables' )
+			->where( [
+				'table_schema' => $dbr->getDBname(),
+				'table_name' => $tableNames
+			] )
+			->caller( __METHOD__ )
+			->fetchResultSet();
+
+		$existingTables = [];
+		foreach ( $res as $row ) {
+			$existingTables[ $row->table_name ] = true;
+		}
+
+		return $existingTables;
+	}
+
 	public static function getTables() {
 		$tableNames = [];
 		$dbr = self::getMainDBForRead();

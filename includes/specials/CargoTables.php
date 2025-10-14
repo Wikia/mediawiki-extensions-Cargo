@@ -502,17 +502,28 @@ class CargoTables extends IncludableSpecialPage {
 			}
 		}
 
+		// Fandom-start
+		// Optimize table existence checks to avoid N+1 queries.
+		// Pre-fetch the existence status of all potential replacement tables in a single query.
+		$replacementTables = [];
+		foreach ( $tableNames as $tableIndex => $tableName ) {
+			$possibleReplacementTable = $tableName . '__NEXT';
+			$replacementTables[] = $possibleReplacementTable;
+		}
+		$existingReplacementTables = CargoUtils::getExistingTables( $replacementTables );
+
 		// reorder table list so tables with replacements are first,
 		// but only if the preference is set to do so
 		if ( $wgCargoTablesPrioritizeReplacements ) {
 			foreach ( $tableNames as $tableIndex => $tableName ) {
 				$possibleReplacementTable = $tableName . '__NEXT';
-				if ( $cdb->tableExists( $possibleReplacementTable, __METHOD__ ) ) {
+				if ( isset( $existingReplacementTables[$possibleReplacementTable] ) ) {
 					unset( $tableNames[$tableIndex] );
 					array_unshift( $tableNames, $tableName );
 				}
 			}
 		}
+		// Fandom-end
 
 		$text .= Html::rawElement( 'p', null, $this->msg( 'cargo-cargotables-tablelist' )
 				->numParams( count( $tableNames ) )
@@ -543,7 +554,9 @@ class CargoTables extends IncludableSpecialPage {
 			}
 
 			$possibleReplacementTable = $tableName . '__NEXT';
-			$hasReplacementTable = CargoUtils::tableFullyExists( $possibleReplacementTable );
+			// Fandom-start
+			$hasReplacementTable = isset( $existingReplacementTables[$possibleReplacementTable] );
+			// Fandom-end
 			$actionLinks = $this->getActionLinksForTable( $tableName, false, $hasReplacementTable );
 
 			$numRowsText = $this->displayNumRowsForTable( $cdb, $tableName );
