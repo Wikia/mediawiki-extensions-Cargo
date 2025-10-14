@@ -56,7 +56,7 @@ class CargoAppliedFilter {
 	 * combination to an SQL "WHERE" clause.
 	 */
 	public function checkSQL() {
-		$cdb = CargoUtils::getDB( 1_000_000 );
+		$cdb = CargoUtils::getDB( DB_REPLICA );
 
 		if ( $this->filter->fieldDescription->mIsList ) {
 			$fieldTableName = $this->filter->tableName . '__' . $this->filter->name;
@@ -176,7 +176,7 @@ class CargoAppliedFilter {
 	}
 
 	public function getQueryParts( $mainTableName ) {
-		$cdb = CargoUtils::getDB( 1_000_000 );
+		$cdb = CargoUtils::getDB( DB_REPLICA );
 
 		$tableNames = [];
 		$conds = [];
@@ -228,7 +228,7 @@ class CargoAppliedFilter {
 		}
 		$table = [ $tableAlias => $tableName ];
 
-		$cdb = CargoUtils::getDB( 1_000_000 );
+		$cdb = CargoUtils::getDB( DB_REPLICA );
 		$res = $cdb->select( $table, "DISTINCT " . $cdb->addIdentifierQuotes( $value_field ) );
 		foreach ( $res as $row ) {
 			$possible_values[] = $row->$value_field;

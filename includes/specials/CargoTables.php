@@ -113,7 +113,7 @@ class CargoTables extends IncludableSpecialPage {
 		$out->addHTML( $structureDesc );
 
 		// Then, display a count.
-		$cdb = CargoUtils::getDB( 1_000_000 );
+		$cdb = CargoUtils::getDB( DB_REPLICA );
 		$numRows = $cdb->selectRowCount( $tableName, '*', null, __METHOD__ );
 		$numRowsMessage =
 			$this->msg( 'cargo-cargotables-totalrows' )->numParams( $numRows )->parse();
@@ -490,7 +490,7 @@ class CargoTables extends IncludableSpecialPage {
 		 * Fandom change - end
 		 */
 
-		$cdb = CargoUtils::getDB( 1_000_000 );
+		$cdb = CargoUtils::getDB( DB_REPLICA );
 		$tableNames = CargoUtils::getTables();
 
 		// Move the "special" tables into a separate array.
