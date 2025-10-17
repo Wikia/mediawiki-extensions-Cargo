@@ -16,8 +16,6 @@ class CargoQueryAutocompleteAPI extends ApiBase {
 	}
 
 	public function execute() {
-		$this->checkUserRightsAny( 'runcargoqueries' );
-
 		$params = $this->extractRequestParams();
 		$substr = $params['search'];
 		$tables = $params['tables'];
