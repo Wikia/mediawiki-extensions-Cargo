@@ -926,14 +926,14 @@ class CargoUtils {
 			$createSQLSuffixes[] = "ROW_FORMAT=$cargoDBRowFormat";
 		}
 		$createSQL .= " " . implode( ', ', $createSQLSuffixes );
-        // Fandom-start: set utf8mb4 character set for Cargo tables (UGC-4625).
-        // These tables cannot use the binary charset that other MediaWiki tables use
-        // due to the need to support natural ordering of varchar fields as well as
-        // SQL functions such as REGEXP_LIKE() that do not support binary fields.
-        // Historically, these tables were created with the 3-byte utf8 character set,
-        // which is not sufficient for some characters, such as emoji.
-        $createSQL .= " CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci";
-        // Fandom-end
+		// Fandom-start: set utf8mb4 character set for Cargo tables (UGC-4625).
+		// These tables cannot use the binary charset that other MediaWiki tables use
+		// due to the need to support natural ordering of varchar fields as well as
+		// SQL functions such as REGEXP_LIKE() that do not support binary fields.
+		// Historically, these tables were created with the 3-byte utf8 character set,
+		// which is not sufficient for some characters, such as emoji.
+		$createSQL .= " CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci";
+		// Fandom-end
 		$cdb->query( $createSQL, __METHOD__ );
 
 		// Add an index for any field that's not of type Text,
