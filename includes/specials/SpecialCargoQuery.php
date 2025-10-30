@@ -9,6 +9,7 @@
 use MediaWiki\Html\Html;
 
 class SpecialCargoQuery extends SpecialPage {
+	use \Fandom\Includes\Logging\Loggable;
 
 	/**
 	 * Constructor
@@ -31,7 +32,18 @@ class SpecialCargoQuery extends SpecialPage {
 		if ( $req->getCheck( 'tables' ) ) {
 			// Allow operators to control how many Cargo queries any one user can run.
 			if ( $this->getUser()->pingLimiter( 'cargo-query' ) ) {
+				$ip = $req->getIP();
+				$this->error( 'Cargo query rate limit hit', [
+					'ip' => $ip,
+					'user' => $this->getUser()->getName()
+				] );
 				throw new ThrottledError();
+			} else {
+				$ip = $req->getIP();
+				$this->error( 'Cargo query rate limit miss', [
+					'ip' => $ip,
+					'user' => $this->getUser()->getName()
+				] );
 			}
 
 			try {
