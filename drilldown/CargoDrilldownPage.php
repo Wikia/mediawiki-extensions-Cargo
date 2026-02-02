@@ -1410,7 +1410,7 @@ END;
 	}
 
 	public function getRecacheDB() {
-		return CargoUtils::getDB();
+		return CargoUtils::getDB( DB_REPLICA );
 	}
 
 	public function getInitialQueryParts() {
