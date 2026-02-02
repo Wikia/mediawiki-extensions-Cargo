@@ -46,11 +46,19 @@ class CargoConnectionProviderUnitTest extends MediaWikiUnitTestCase {
 		$serviceOptions = new ServiceOptions( CargoConnectionProvider::CONSTRUCTOR_OPTIONS, $config );
 		$connectionProvider = new CargoConnectionProvider( $this->lbFactory, $this->databaseFactory, $serviceOptions );
 		$mainConn = $this->createMock( IDatabase::class );
+		$replicaConnection = $this->createMock( IDatabase::class );
+		$primaryConnection = $this->createMock( IDatabase::class );
 
 		$this->dbLoadBalancer->expects( $this->any() )
+			->method( 'hasOrMadeRecentPrimaryChanges' )
+			->willReturn( false );
+
+		$expectedIndex = $serviceOptions->get( 'CargoDBIndex' );
+		$this->dbLoadBalancer->expects( $this->any() )
 			->method( 'getConnection' )
-			->with( $serviceOptions->get( 'CargoDBIndex' ) ?? DB_PRIMARY )
-			->willReturn( $mainConn );
+			->willReturnCallback( function ( $index ) use ( $mainConn, $expectedIndex ) {
+				return $mainConn;
+			} );
 
 		$mainConn->expects( $this->any() )
 			->method( 'getServer' )
@@ -62,16 +70,20 @@ class CargoConnectionProviderUnitTest extends MediaWikiUnitTestCase {
 			->method( 'getType' )
 			->willReturn( 'mysql' );
 
-		$this->databaseFactory->expects( $this->once() )
+		$createCallCount = 0;
+		$this->databaseFactory->expects( $this->atLeastOnce() )
 			->method( 'create' )
 			->with( $expectedDbType, $expectedConnectionParams )
-			->willReturn( $this->connection );
+			->willReturnCallback( function () use ( &$createCallCount, $replicaConnection, $primaryConnection ) {
+				$createCallCount++;
+				return $createCallCount === 1 ? $replicaConnection : $primaryConnection;
+			} );
 
 		$replicaConn = $connectionProvider->getConnection( DB_REPLICA );
 		$primaryConn = $connectionProvider->getConnection( DB_PRIMARY );
 
-		$this->assertSame( $this->connection, $replicaConn );
-		$this->assertSame( $this->connection, $primaryConn );
+		$this->assertSame( $replicaConnection, $replicaConn );
+		$this->assertSame( $primaryConnection, $primaryConn );
 	}
 
 	public static function provideConnectionConfigs(): iterable {

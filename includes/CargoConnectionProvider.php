@@ -41,9 +41,14 @@ class CargoConnectionProvider {
 	];
 
 	/**
-	 * The database connection to use for accessing Cargo data, if 'CargoDBCluster' is not set.
+	 * The database connection to use for read operations (replica), if 'CargoDBCluster' is not set.
 	 */
-	private ?IDatabase $connection = null;
+	private ?IDatabase $replicaConnection = null;
+
+	/**
+	 * The database connection to use for write operations (primary), if 'CargoDBCluster' is not set.
+	 */
+	private ?IDatabase $primaryConnection = null;
 
 	public function __construct(
 		private ILBFactory $lbFactory,
@@ -72,14 +77,29 @@ class CargoConnectionProvider {
 			return $conn;
 		}
 
-		if ( $this->connection === null ) {
-			$this->connection = $this->initConnection();
-
-			// Fandom change: Ensure Cargo DB connections use 4-byte UTF-8 client character set (UGC-4625).
-			self::setClientCharacterSet( $this->connection );
+		// Fandom change: Support separate replica/primary connections for non-cluster setups.
+		// This ensures read operations (DB_REPLICA) go to replica DB, not primary.
+		$lb = $this->lbFactory->getMainLB();
+		// Fall back to the primary DB if there were recent writes, to ensure that Cargo sees its own changes.
+		if ( $lb->hasOrMadeRecentPrimaryChanges() ) {
+			$dbType = DB_PRIMARY;
 		}
 
-		return $this->connection;
+		if ( $dbType === DB_PRIMARY ) {
+			if ( $this->primaryConnection === null ) {
+				$this->primaryConnection = $this->initConnection( DB_PRIMARY );
+				// Fandom change: Ensure Cargo DB connections use 4-byte UTF-8 client character set (UGC-4625).
+				self::setClientCharacterSet( $this->primaryConnection );
+			}
+			return $this->primaryConnection;
+		}
+
+		if ( $this->replicaConnection === null ) {
+			$this->replicaConnection = $this->initConnection( DB_REPLICA );
+			// Fandom change: Ensure Cargo DB connections use 4-byte UTF-8 client character set (UGC-4625).
+			self::setClientCharacterSet( $this->replicaConnection );
+		}
+		return $this->replicaConnection;
 	}
 
 	/**
@@ -93,10 +113,11 @@ class CargoConnectionProvider {
 	/**
 	 * Create a database connection for Cargo data managed entirely by this class.
 	 */
-	private function initConnection(): IDatabase {
+	private function initConnection( int $dbType ): IDatabase {
 		$lb = $this->lbFactory->getMainLB();
-		// Fandom change: Use the DB index specified in the CargoDBIndex option (PLATFORM-7466).
-		$index = $this->serviceOptions->get( 'CargoDBIndex' ) ?? $lb::DB_PRIMARY;
+		// Fandom change: Use the DB index specified in the CargoDBIndex option (PLATFORM-7466),
+		// or fall back to the requested $dbType (DB_REPLICA or DB_PRIMARY).
+		$index = $this->serviceOptions->get( 'CargoDBIndex' ) ?? $dbType;
 		$dbr = $lb->getConnection( $index );
 
 		$dbServers = $this->serviceOptions->get( 'DBservers' );
