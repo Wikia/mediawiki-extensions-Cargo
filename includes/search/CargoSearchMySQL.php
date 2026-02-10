@@ -128,7 +128,7 @@ class CargoSearchMySQL extends SearchMySQL {
 			// @phan-suppress-next-line PhanUndeclaredProperty
 			$searchon = $this->db->addQuotes( $searchon );
 		} else {
-			$cdb = CargoUtils::getDB();
+			$cdb = CargoUtils::getDB( DB_REPLICA );
 			$searchon = $cdb->addQuotes( $searchon );
 		}
 

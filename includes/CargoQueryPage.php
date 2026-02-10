@@ -96,7 +96,7 @@ class CargoQueryPage extends QueryPage {
 
 	/** @inheritDoc */
 	public function getRecacheDB() {
-		return CargoUtils::getDB();
+		return CargoUtils::getDB( DB_REPLICA );
 	}
 
 	public function getQueryInfo() {
