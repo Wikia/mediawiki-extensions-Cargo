@@ -16,7 +16,7 @@ class CargoQuery {
 	/**
 	 * MySQL error number for "Unknown column 'x' in 'field list'".
 	 */
-	private const int MYSQL_ER_BAD_FIELD_ERROR = 1054;
+	private const MYSQL_ER_BAD_FIELD_ERROR = 1054;
 
 	/**
 	 * Returns true when the DB query error is caused by a user mistake (e.g. bad wikitext,
