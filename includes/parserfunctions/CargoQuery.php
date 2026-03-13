@@ -1,6 +1,7 @@
 <?php
 
 use Wikimedia\Rdbms\DBError;
+use Wikimedia\Rdbms\DBQueryError;
 
 /**
  * CargoQuery - class for the #cargo_query parser function.
@@ -10,6 +11,25 @@ use Wikimedia\Rdbms\DBError;
  */
 
 class CargoQuery {
+
+	// Fandom-start UGC-7292 | Show user-caused query errors as inline page errors instead of HTTP 500
+	/**
+	 * MySQL error number for "Unknown column 'x' in 'field list'".
+	 */
+	private const int MYSQL_ER_BAD_FIELD_ERROR = 1054;
+
+	/**
+	 * Returns true when the DB query error is caused by a user mistake (e.g. bad wikitext,
+	 * wrong cargo table schema, or incorrect cargo query) rather than a transient DB error.
+	 * Such errors should be shown as inline page errors instead of HTTP 500.
+	 */
+	private static function isUserCausedQueryError( DBQueryError $e ): bool {
+		return in_array( $e->errno, [
+			self::MYSQL_ER_BAD_FIELD_ERROR,
+		], true );
+	}
+
+	// Fandom-end UGC-7292
 
 	/**
 	 * Handles the #cargo_query parser function - calls a query on the
@@ -115,10 +135,17 @@ class CargoQuery {
 				);
 				$queryResultsJustForResultsTitle = $sqlQueryJustForResultsTitle->run();
 			}
-		// Fandom-start PLATFORM-9121 | Do not swallow DB errors in Cargo query
+		// Fandom-start UGC-7292 | Show user-caused query errors as inline page errors instead of HTTP 500
+		} catch ( DBQueryError $e ) {
+			if ( self::isUserCausedQueryError( $e ) ) {
+				return CargoUtils::formatError( $e->error );
+			}
+			throw $e;
+		// Fandom-end UGC-7292
+		// Fandom-start PLATFORM-9121 | Do not swallow transient DB errors in Cargo query
 		} catch ( DBError $e ) {
 			throw $e;
-			// Fandom-end
+		// Fandom-end PLATFORM-9121
 		} catch ( Exception $e ) {
 			return CargoUtils::formatError( $e->getMessage() );
 		}
@@ -171,6 +198,17 @@ class CargoQuery {
 
 		try {
 			$queryResults = $sqlQuery->run();
+		// Fandom-start UGC-7292 | Show user-caused query errors as inline page errors instead of HTTP 500
+		} catch ( DBQueryError $e ) {
+			if ( self::isUserCausedQueryError( $e ) ) {
+				return CargoUtils::formatError( $e->error );
+			}
+			throw $e;
+		// Fandom-end UGC-7292
+		// Fandom-start PLATFORM-9121 | Do not swallow transient DB errors in Cargo query
+		} catch ( DBError $e ) {
+			throw $e;
+		// Fandom-end PLATFORM-9121
 		} catch ( Exception $e ) {
 			return CargoUtils::formatError( $e->getMessage() );
 		}
