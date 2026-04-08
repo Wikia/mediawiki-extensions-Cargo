@@ -202,7 +202,7 @@ class CargoPageValues extends IncludableSpecialPage {
 		return $fieldInfo;
 	}
 
-    public function getRowsForPageInTable( $tableName) {
+    public function getRowsForPageInTable( $tableName ) {
 		$cdb = CargoUtils::getDB( DB_REPLICA );
 
 		$sqlQuery = new CargoSQLQuery();
