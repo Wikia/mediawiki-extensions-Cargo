@@ -43,38 +43,52 @@ class CargoPageValues extends IncludableSpecialPage {
 		$pageRef = PageReferenceValue::localReference( NS_SPECIAL, "PageValues/$pageName" );
 		MediaWikiServices::getInstance()->getParser()->setPage( $pageRef );
 
+        $request = $this->getRequest();
+        $tableLimit = $request->getInt( 'tablelimit', 10 );
+        $tableOffset = $request->getInt( 'tableoffset', 0 );
+
 		$text = '';
 
 		$tableNames = [];
 
 		$cdb = CargoUtils::getDB( DB_REPLICA );
-		if ( $cdb->tableExists( '_pageData__NEXT', __METHOD__ ) ) {
-			$tableNames[] = '_pageData__NEXT';
-		} elseif ( $cdb->tableExists( '_pageData', __METHOD__ ) ) {
-			$tableNames[] = '_pageData';
-		}
-		if ( $cdb->tableExists( '_fileData__NEXT', __METHOD__ ) ) {
-			$tableNames[] = '_fileData__NEXT';
-		} elseif ( $cdb->tableExists( '_fileData', __METHOD__ ) ) {
-			$tableNames[] = '_fileData';
-		}
+        // show _pageData only for first page
+        if ( $tableOffset === 0 ) {
+            $cdb = CargoUtils::getDB( DB_REPLICA );
+            if ( $cdb->tableExists( '_pageData__NEXT', __METHOD__ ) ) {
+                $tableNames[] = '_pageData__NEXT';
+            } elseif ( $cdb->tableExists( '_pageData', __METHOD__ ) ) {
+                $tableNames[] = '_pageData';
+            }
+            if ( $cdb->tableExists( '_fileData__NEXT', __METHOD__ ) ) {
+                $tableNames[] = '_fileData__NEXT';
+            } elseif ( $cdb->tableExists( '_fileData', __METHOD__ ) ) {
+                $tableNames[] = '_fileData';
+            }
+        }
 
-		$dbr = CargoUtils::getMainDBForRead();
-		$res = $dbr->select(
-			'cargo_pages', 'table_name',
-			[ 'page_id' => $this->mTitle->getArticleID() ],
-			__METHOD__
-		);
+        $dbr = CargoUtils::getMainDBForRead();
+        $res = $dbr->select(
+            'cargo_pages',
+            'table_name',
+            [ 'page_id' => $this->mTitle->getArticleID() ],
+            __METHOD__,
+            [
+                'LIMIT' => $tableLimit,
+                'OFFSET' => $tableOffset,
+                'ORDER BY' => 'table_name ASC'
+            ]
+        );
 		foreach ( $res as $row ) {
 			$tableNames[] = $row->table_name;
 		}
 
 		$toc = self::tocIndent();
-		$tocLength = 0;
+        $tocLength = $tableOffset > 0 ? $tableOffset + 1 : 0;
 
 		foreach ( $tableNames as $tableName ) {
 			try {
-				$queryResults = $this->getRowsForPageInTable( $tableName );
+                $queryResults = $this->getRowsForPageInTable( $tableName );
 			} catch ( Exception $e ) {
 				// Most likely this is because the _pageData
 				// table doesn't exist.
@@ -135,7 +149,17 @@ class CargoPageValues extends IncludableSpecialPage {
 			$out->addHTML( $toc );
 		}
 
+        $nextOffset = $tableOffset + $tableLimit;
+        $prevOffset = max( 0, $tableOffset - $tableLimit );
+        $paginationHtml = Html::rawElement( 'div',
+            [ 'style' => 'text-align: center; font-weight: bold; padding: 15px; background: #f8f9fa; border: 1px solid #a2a9b1; margin: 10px 0;' ],
+            Html::element( 'a', [ 'href' => "?action=pagevalues&tableoffset={$prevOffset}&tablelimit={$tableLimit}" ], '← prev' ) .
+            ' | ' .
+            Html::element( 'a', [ 'href' => "?action=pagevalues&tableoffset={$nextOffset}&tablelimit={$tableLimit}" ], 'next →' )
+        );
+
 		$out->addHTML( $text );
+        $out->addHTML( $paginationHtml );
 		$out->addModules( 'ext.cargo.main' );
 		$out->addModuleStyles( 'ext.cargo.pagevalues' );
 
@@ -178,7 +202,7 @@ class CargoPageValues extends IncludableSpecialPage {
 		return $fieldInfo;
 	}
 
-	public function getRowsForPageInTable( $tableName ) {
+    public function getRowsForPageInTable( $tableName) {
 		$cdb = CargoUtils::getDB( DB_REPLICA );
 
 		$sqlQuery = new CargoSQLQuery();
