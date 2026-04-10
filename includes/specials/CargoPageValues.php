@@ -149,13 +149,34 @@ class CargoPageValues extends IncludableSpecialPage {
 			$out->addHTML( $toc );
 		}
 
+		$totalCount = $dbr->selectField(
+			'cargo_pages',
+			'COUNT(*)',
+			[ 'page_id' => $this->mTitle->getArticleID() ],
+			__METHOD__
+		);
 		$nextOffset = $tableOffset + $tableLimit;
 		$prevOffset = max( 0, $tableOffset - $tableLimit );
+
+		if ( $tableOffset > 0 ) {
+			$prevLink = Html::element( 'a', [
+				'href' => "?tableoffset={$prevOffset}&tablelimit={$tableLimit}"
+			], '← prev' );
+		} else {
+			$prevLink = Html::rawElement( 'span', [], '← prev' );
+		}
+
+		if ( $tableOffset + $tableLimit < $totalCount ) {
+			$nextLink = Html::element( 'a', [
+				'href' => "?tableoffset={$nextOffset}&tablelimit={$tableLimit}"
+			], 'next →' );
+		} else {
+			$nextLink = Html::rawElement( 'span', [], 'next →' );
+		}
+
 		$paginationHtml = Html::rawElement( 'div',
-			[ 'style' => 'text-align: center; font-weight: bold; padding: 15px; background: #f8f9fa; border: 1px solid #a2a9b1; margin: 10px 0;' ],
-			Html::element( 'a', [ 'href' => "?action=pagevalues&tableoffset={$prevOffset}&tablelimit={$tableLimit}" ], '← prev' ) .
-			' | ' .
-			Html::element( 'a', [ 'href' => "?action=pagevalues&tableoffset={$nextOffset}&tablelimit={$tableLimit}" ], 'next →' )
+			[ 'style' => 'text-align: center; font-weight: bold; padding: 15px; background: var(--table-background); border: 1px var(--table-border) solid; margin: 10px 0;' ],
+			$prevLink . ' | ' . $nextLink
 		);
 
 		$out->addHTML( $text );
