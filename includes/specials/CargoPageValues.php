@@ -160,7 +160,7 @@ class CargoPageValues extends IncludableSpecialPage {
 
 		if ( $tableOffset > 0 ) {
 			$prevLink = Html::element( 'a', [
-				'href' => "?tableoffset={$prevOffset}&tablelimit={$tableLimit}"
+				'href' => "?action=pagevalues&tableoffset={$prevOffset}&tablelimit={$tableLimit}"
 			], '← prev' );
 		} else {
 			$prevLink = Html::rawElement( 'span', [], '← prev' );
@@ -168,7 +168,7 @@ class CargoPageValues extends IncludableSpecialPage {
 
 		if ( $tableOffset + $tableLimit < $totalCount ) {
 			$nextLink = Html::element( 'a', [
-				'href' => "?tableoffset={$nextOffset}&tablelimit={$tableLimit}"
+				'href' => "?action=pagevalues&tableoffset={$nextOffset}&tablelimit={$tableLimit}"
 			], 'next →' );
 		} else {
 			$nextLink = Html::rawElement( 'span', [], 'next →' );
