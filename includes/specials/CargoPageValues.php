@@ -43,34 +43,48 @@ class CargoPageValues extends IncludableSpecialPage {
 		$pageRef = PageReferenceValue::localReference( NS_SPECIAL, "PageValues/$pageName" );
 		MediaWikiServices::getInstance()->getParser()->setPage( $pageRef );
 
+		$request = $this->getRequest();
+		$tableLimit = $request->getInt( 'tablelimit', 10 );
+		$tableOffset = $request->getInt( 'tableoffset', 0 );
+
 		$text = '';
 
 		$tableNames = [];
 
 		$cdb = CargoUtils::getDB( DB_REPLICA );
-		if ( $cdb->tableExists( '_pageData__NEXT', __METHOD__ ) ) {
-			$tableNames[] = '_pageData__NEXT';
-		} elseif ( $cdb->tableExists( '_pageData', __METHOD__ ) ) {
-			$tableNames[] = '_pageData';
-		}
-		if ( $cdb->tableExists( '_fileData__NEXT', __METHOD__ ) ) {
-			$tableNames[] = '_fileData__NEXT';
-		} elseif ( $cdb->tableExists( '_fileData', __METHOD__ ) ) {
-			$tableNames[] = '_fileData';
+		// show _pageData only for first page
+		if ( $tableOffset === 0 ) {
+			$cdb = CargoUtils::getDB( DB_REPLICA );
+			if ( $cdb->tableExists( '_pageData__NEXT', __METHOD__ ) ) {
+				$tableNames[] = '_pageData__NEXT';
+			} elseif ( $cdb->tableExists( '_pageData', __METHOD__ ) ) {
+				$tableNames[] = '_pageData';
+			}
+			if ( $cdb->tableExists( '_fileData__NEXT', __METHOD__ ) ) {
+				$tableNames[] = '_fileData__NEXT';
+			} elseif ( $cdb->tableExists( '_fileData', __METHOD__ ) ) {
+				$tableNames[] = '_fileData';
+			}
 		}
 
 		$dbr = CargoUtils::getMainDBForRead();
 		$res = $dbr->select(
-			'cargo_pages', 'table_name',
+			'cargo_pages',
+			'table_name',
 			[ 'page_id' => $this->mTitle->getArticleID() ],
-			__METHOD__
+			__METHOD__,
+			[
+				'LIMIT' => $tableLimit,
+				'OFFSET' => $tableOffset,
+				'ORDER BY' => 'table_name ASC'
+			]
 		);
 		foreach ( $res as $row ) {
 			$tableNames[] = $row->table_name;
 		}
 
 		$toc = self::tocIndent();
-		$tocLength = 0;
+		$tocLength = $tableOffset > 0 ? $tableOffset + 1 : 0;
 
 		foreach ( $tableNames as $tableName ) {
 			try {
@@ -135,7 +149,38 @@ class CargoPageValues extends IncludableSpecialPage {
 			$out->addHTML( $toc );
 		}
 
+		$totalCount = $dbr->selectField(
+			'cargo_pages',
+			'COUNT(*)',
+			[ 'page_id' => $this->mTitle->getArticleID() ],
+			__METHOD__
+		);
+		$nextOffset = $tableOffset + $tableLimit;
+		$prevOffset = max( 0, $tableOffset - $tableLimit );
+
+		if ( $tableOffset > 0 ) {
+			$prevLink = Html::element( 'a', [
+				'href' => "?action=pagevalues&tableoffset={$prevOffset}&tablelimit={$tableLimit}"
+			], '← prev' );
+		} else {
+			$prevLink = Html::rawElement( 'span', [], '← prev' );
+		}
+
+		if ( $tableOffset + $tableLimit < $totalCount ) {
+			$nextLink = Html::element( 'a', [
+				'href' => "?action=pagevalues&tableoffset={$nextOffset}&tablelimit={$tableLimit}"
+			], 'next →' );
+		} else {
+			$nextLink = Html::rawElement( 'span', [], 'next →' );
+		}
+
+		$paginationHtml = Html::rawElement( 'div',
+			[ 'style' => 'text-align: center; font-weight: bold; padding: 15px; background: var(--table-background); border: 1px var(--table-border) solid; margin: 10px 0;' ],
+			$prevLink . ' | ' . $nextLink
+		);
+
 		$out->addHTML( $text );
+		$out->addHTML( $paginationHtml );
 		$out->addModules( 'ext.cargo.main' );
 		$out->addModuleStyles( 'ext.cargo.pagevalues' );
 
