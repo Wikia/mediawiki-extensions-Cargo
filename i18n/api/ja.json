@@ -1,8 +1,8 @@
 {
 	"@metadata": {
 		"authors": [
-			"Yusuke1109",
-			"Shulmj"
+			"Shulmj",
+			"Yusuke1109"
 		]
 	},
 	"apihelp-cargoquery-summary": "Cargoデータに対してクエリを実行します。",

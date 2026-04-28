@@ -1,6 +1,8 @@
 <?php
 
 use MediaWiki\MediaWikiServices;
+use MediaWiki\Parser\ParserOutputLinkTypes;
+use MediaWiki\Title\Title;
 
 /**
  * Static functions for dealing with the "_pageData" table.
@@ -56,6 +58,12 @@ class CargoPageData {
 		}
 		if ( in_array( 'lastEditor', $wgCargoPageDataColumns ) ) {
 			$fieldTypes['_lastEditor'] = [ 'String', false ];
+		}
+		if ( in_array( 'outgoingLinks', $wgCargoPageDataColumns ) ) {
+			$fieldTypes['_outgoingLinks'] = [ 'String', true ];
+		}
+		if ( in_array( 'displayTitle', $wgCargoPageDataColumns ) ) {
+			$fieldTypes['_displayTitle'] = [ 'String', false ];
 		}
 
 		$tableSchema = new CargoTableSchema();
@@ -128,14 +136,23 @@ class CargoPageData {
 			$pageCategories = [];
 			if ( !$setToBlank ) {
 				$dbr = CargoUtils::getMainDBForRead();
-				$res = $dbr->select(
-					'categorylinks',
-					'cl_to',
-					[ 'cl_from' => $title->getArticleID() ],
-					__METHOD__
-				);
-				foreach ( $res as $row ) {
-					$pageCategories[] = str_replace( '_', ' ', $row->cl_to );
+				if ( $dbr->fieldExists( 'categorylinks', 'cl_to' ) ) {
+					$res = $dbr->select(
+						'categorylinks',
+						'cl_to',
+						[ 'cl_from' => $title->getArticleID() ],
+						__METHOD__
+					);
+					foreach ( $res as $row ) {
+						$pageCategories[] = str_replace( '_', ' ', $row->cl_to );
+					}
+				} else {
+					// MW 1.45+
+					// We only call this if cl_to is not there because, for
+					// some MW versions, getParentCategories() seems to do
+					// the "wrong" thing (use cl_target_id even though it's
+					// underpopulated).
+					$pageCategories = $title->getParentCategories();
 				}
 			}
 
@@ -185,6 +202,34 @@ class CargoPageData {
 			} else {
 				$pageDataValues['_lastEditor'] = $latestRevision->getUser()->getName();
 			}
+		}
+		if ( in_array( 'outgoingLinks', $wgCargoPageDataColumns ) ) {
+			$outLinkPageIDs = [];
+			// ParserOutputLinkTypes exists only for MW versions >= 1.43
+			if ( class_exists( 'MediaWiki\\Parser\\ParserOutputLinkTypes' ) ) {
+				$parserOutput = $wikiPage->getParserOutput();
+				$outLinks = $parserOutput->getLinkList( ParserOutputLinkTypes::LOCAL );
+				foreach ( $outLinks as $outLink ) {
+					$outLinkPageIDs[] = $outLink['pageid'];
+				}
+			} else {
+				$outTitles = $wikiPage->getTitle()->getLinksFrom();
+				foreach ( $outTitles as $outTitle ) {
+					$outLinkPageIDs[] = $outTitle->getArticleID();
+				}
+			}
+			if ( count( $outLinkPageIDs ) > 0 ) {
+				$outLinkString = implode( '|', $outLinkPageIDs );
+				$pageDataValues['_outgoingLinks'] = $outLinkString;
+			} else {
+				$pageDataValues['_outgoingLinks'] = null;
+			}
+		}
+
+		if ( in_array( 'displayTitle', $wgCargoPageDataColumns ) ) {
+			$displayTitleValues = MediaWikiServices::getInstance()->getPageProps()->getProperties( $title, 'displaytitle' );
+			$displayTitle = count( $displayTitleValues ) > 0 ? reset( $displayTitleValues ) : $title->getFullText();
+			$pageDataValues['_displayTitle'] = $displayTitle;
 		}
 
 		$pageDataSchema = $tableSchemas[$pageDataTable];

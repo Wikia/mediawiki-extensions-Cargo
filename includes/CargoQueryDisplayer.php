@@ -1,6 +1,9 @@
 <?php
 
+use MediaWiki\Html\Html;
+use MediaWiki\Linker\Linker;
 use MediaWiki\MediaWikiServices;
+use MediaWiki\Title\Title;
 
 /**
  * CargoQueryDisplayer - class for displaying query results.
@@ -106,6 +109,13 @@ class CargoQueryDisplayer {
 	public function getFormattedQueryResults( $queryResults, $escapeValues = false ) {
 		global $wgScriptPath, $wgServer;
 
+		if ( $this->mParser == null ) {
+			$this->mParser = MediaWikiServices::getInstance()->getParser();
+			// Good enough to just use anon, or would it help to get the actual user?
+			$this->mParser->setOptions( ParserOptions::newFromAnon() );
+			$this->mParser->resetOutput();
+		}
+
 		// The assignment will do a copy.
 		$formattedQueryResults = $queryResults;
 		foreach ( $queryResults as $rowNum => $row ) {
@@ -129,7 +139,8 @@ class CargoQueryDisplayer {
 					// There's probably an easier way to do
 					// this, using array_map().
 					$delimiter = $fieldDescription->getDelimiter();
-					// We need to decode it in case the delimiter is ;
+					// The combined field value has been escaped by CargoSQLQuery - let's decode it in case the
+					// delimiter has been affected.
 					$valueDecoded = html_entity_decode( $value );
 					$fieldValues = explode( $delimiter, $valueDecoded );
 					foreach ( $fieldValues as $i => $fieldValue ) {
@@ -148,7 +159,8 @@ class CargoQueryDisplayer {
 							// list parsing worked.
 							$text .= ' <span class="CargoDelimiter">&bull;</span> ';
 						}
-						$text .= self::formatFieldValue( $fieldValue, $fieldType, $fieldDescription, $this->mParser, $escapeValues );
+						// This value is unescaped, so we need to escape it again.
+						$text .= self::formatFieldValue( $fieldValue, $fieldType, $fieldDescription, $this->mParser, true );
 					}
 				} elseif ( $fieldDescription->isDateOrDatetime() ) {
 					$datePrecisionField = $fieldName . '__precision';
@@ -227,6 +239,19 @@ class CargoQueryDisplayer {
 			$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
 			// Hide the namespace in the display?
 			global $wgCargoHideNamespaceName;
+			if ( !$title->exists() && $fieldDescription->mForm !== null && class_exists( 'PFFormEdit' ) ) {
+				// If it's a red link and a Page Forms form has been defined for this field, link to that form.
+				$fe = CargoUtils::getSpecialPage( 'FormEdit' );
+				$formName = $fieldDescription->mForm;
+				$pageName = $wgCargoHideNamespaceName ? $title->getRootText() : $title->getFullText();
+				if ( strpos( $formName, '/' ) !== false ) {
+					$url = $fe->getPageTitle()->getLocalURL( [ 'form' => $formName, 'target' => $pageName ] );
+				} else {
+					$url = $fe->getPageTitle( "$formName/$pageName" )->getLocalURL();
+				}
+				return Html::element( 'a', [ 'href' => $url, 'class' => 'new' ], $pageName );
+			}
+
 			if ( in_array( $title->getNamespace(), $wgCargoHideNamespaceName ) ) {
 				return CargoUtils::makeLink( $linkRenderer, $title, htmlspecialchars( $title->getRootText() ) );
 			} else {
@@ -250,7 +275,8 @@ class CargoQueryDisplayer {
 			);
 		} elseif ( $type == 'URL' ) {
 			// Validate URL - regexp code copied from Sanitizer::validateAttributes().
-			$hrefExp = '/^(' . wfUrlProtocols() . ')[^\s]+$/';
+			$urlUtils = MediaWikiServices::getInstance()->getUrlUtils();
+			$hrefExp = '/^(' . $urlUtils->validProtocols() . ')[^\s]+$/';
 			if ( !preg_match( $hrefExp, $value ) ) {
 				if ( $escapeValue ) {
 					return htmlspecialchars( $value );
@@ -287,9 +313,9 @@ class CargoQueryDisplayer {
 		}
 
 		// If it's not any of these specially-handled types, just
-		// return the value.
+		// return the value, with some minimal escaping.
 		if ( $escapeValue ) {
-			$value = htmlspecialchars( $value );
+			$value = str_replace( [ '<', '>' ], [ '&lt;', '&gt;' ], $value );
 		}
 		return $value;
 	}
@@ -456,7 +482,7 @@ class CargoQueryDisplayer {
 		if ( $displayHTML ) {
 			$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
 			$link = CargoUtils::makeLink( $linkRenderer, $vd, $moreResultsText, [], $queryStringParams );
-			return Html::rawElement( 'p', null, $link );
+			return Html::rawElement( 'p', [], $link );
 		} else {
 			// Display link as wikitext.
 			global $wgServer;

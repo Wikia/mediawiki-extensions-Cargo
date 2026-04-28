@@ -29,7 +29,8 @@ class CargoSQLQuery {
 	public $mOrigHavingStr;
 	public $mHavingStr;
 	public $mOrigOrderBy;
-	public $mOrderBy;
+	/** @var string[] */
+	private $mOrderBy = [];
 	public $mQueryLimit;
 	public $mOffset;
 	public $mSearchTerms = [];
@@ -219,13 +220,18 @@ class CargoSQLQuery {
 			if ( count( $fieldStringParts ) == 2 ) {
 				$fieldName = trim( $fieldStringParts[0] );
 				$alias = trim( $fieldStringParts[1] );
+				// Validate alias.
+				if ( strpos( $alias, '.' ) !== false || strpos( $alias, '"' ) !== false || strpos( $alias, '\'' ) !== false ) {
+					throw new MWException( "Error: invalid field alias \"$alias\"; aliases cannot contain dots or quotes." );
+				}
 			} else {
 				$fieldName = $fieldString;
 				// Might as well change underscores to spaces
 				// by default - but for regular field names,
 				// not the special ones.
 				// "Real" field = with the table name removed.
-				if ( strpos( $fieldName, '.' ) !== false ) {
+				if ( strpos( $fieldName, '.' ) !== false &&
+					strpos( $fieldName, '(' ) === false ) {
 					[ $tableName, $realFieldName ] = explode( '.', $fieldName, 2 );
 				} else {
 					$realFieldName = $fieldName;
@@ -235,6 +241,11 @@ class CargoSQLQuery {
 				} else {
 					$alias = $realFieldName;
 				}
+				// If this is just the field name being used as
+				// the alias, and it contains forbidden
+				// characters, don't throw an error - just
+				// replace those characters with spaces.
+				$alias = str_replace( [ '.', '"', '\'' ], ' ', $alias );
 			}
 			if ( !$alias ) {
 				$blankAliasCount++;
@@ -385,6 +396,17 @@ class CargoSQLQuery {
 	}
 
 	/**
+	 * The handling of DB table aliases in SQL queries was changed in
+	 * MW 1.44, for reasons I don't really understand; because of it,
+	 * some of the Cargo tables need to be called in the SQL query without
+	 * their "cargo__" prefix. This change was then backported to MW 1.43,
+	 * starting with 1.43.2.
+	 */
+	public static function mwUsesOldDBAliasing() {
+		return version_compare( MW_VERSION, '1.43.2', '<' );
+	}
+
+	/**
 	 * Turn the very structured format that Cargo uses for join
 	 * conditions into the one that MediaWiki uses - this includes
 	 * adding the database prefix to each table name.
@@ -398,14 +420,15 @@ class CargoSQLQuery {
 		foreach ( $this->mCargoJoinConds as $cargoJoinCond ) {
 			// Only add the DB prefix to the table names if
 			// they're true table names and not aliases.
+			$oldAliasing = self::mwUsesOldDBAliasing();
 			$table1 = $cargoJoinCond['table1'];
-			if ( !array_key_exists( $table1, $this->mAliasedTableNames ) || $this->mAliasedTableNames[$table1] == $table1 ) {
+			if ( $oldAliasing && ( !array_key_exists( $table1, $this->mAliasedTableNames ) || $this->mAliasedTableNames[$table1] == $table1 ) ) {
 				$cargoTable1 = $this->mCargoDB->tableName( $table1 );
 			} else {
 				$cargoTable1 = $this->mCargoDB->addIdentifierQuotes( $table1 );
 			}
 			$table2 = $cargoJoinCond['table2'];
-			if ( !array_key_exists( $table2, $this->mAliasedTableNames ) || $this->mAliasedTableNames[$table2] == $table2 ) {
+			if ( $oldAliasing && ( !array_key_exists( $table2, $this->mAliasedTableNames ) || $this->mAliasedTableNames[$table2] == $table2 ) ) {
 				$cargoTable2 = $this->mCargoDB->tableName( $table2 );
 			} else {
 				$cargoTable2 = $this->mCargoDB->addIdentifierQuotes( $table2 );
@@ -439,8 +462,19 @@ class CargoSQLQuery {
 		}
 	}
 
-	public function setOrderBy( $orderByStr = null ) {
-		$this->mOrderBy = [];
+	/**
+	 * Get array of ORDER BY clauses (quoted column names with ASC or DESC).
+	 *
+	 * @return string[]
+	 */
+	public function getOrderBy(): array {
+		return $this->mOrderBy;
+	}
+
+	/**
+	 * @param ?string $orderByStr
+	 */
+	public function setOrderBy( ?string $orderByStr = null ) {
 		if ( $orderByStr != '' ) {
 			$orderByElements = CargoUtils::smartSplit( ',', $orderByStr );
 			foreach ( $orderByElements as $elem ) {
@@ -1568,7 +1602,7 @@ class CargoSQLQuery {
 	public function run() {
 		foreach ( $this->mAliasedTableNames as $tableName ) {
 			if ( !$this->mCargoDB->tableExists( $tableName, __METHOD__ ) ) {
-				throw new MWException( "Error: No database table exists named \"$tableName\"." );
+				throw new MWException( wfMessage( "cargo-query-unknowndbtable", $tableName )->parse() );
 			}
 		}
 
@@ -1581,7 +1615,10 @@ class CargoSQLQuery {
 			$selectOptions['HAVING'] = $this->mHavingStr;
 		}
 
-		$selectOptions['ORDER BY'] = $this->mOrderBy;
+		if ( $this->mOrderBy ) {
+			$selectOptions['ORDER BY'] = $this->mOrderBy;
+		}
+
 		$selectOptions['LIMIT'] = $this->mQueryLimit;
 		$selectOptions['OFFSET'] = $this->mOffset;
 
@@ -1662,11 +1699,16 @@ class CargoSQLQuery {
 		$beforeText = $matches[1];
 		$tableName = $matches[2];
 		$fieldName = $matches[3];
-		$isTableAlias = false;
-		if ( array_key_exists( $tableName, $this->mAliasedTableNames ) ) {
-			if ( !in_array( $tableName, $this->mAliasedTableNames ) ) {
-				$isTableAlias = true;
+		$oldAliasing = self::mwUsesOldDBAliasing();
+		if ( $oldAliasing ) {
+			$isTableAlias = false;
+			if ( array_key_exists( $tableName, $this->mAliasedTableNames ) ) {
+				if ( !in_array( $tableName, $this->mAliasedTableNames ) ) {
+					$isTableAlias = true;
+				}
 			}
+		} else {
+			$isTableAlias = true;
 		}
 		if ( $isTableAlias ) {
 			return $beforeText . $this->mCargoDB->addIdentifierQuotes( $tableName ) . "." .

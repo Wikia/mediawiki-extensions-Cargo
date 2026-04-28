@@ -1,10 +1,12 @@
 <?php
 
+use MediaWiki\Category\Category;
 use MediaWiki\Linker\LinkTarget;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Revision\RevisionRecord;
 use MediaWiki\Revision\SlotRecord;
 use MediaWiki\Storage\EditResult;
+use MediaWiki\Title\Title;
 use MediaWiki\User\UserIdentity;
 
 /**
@@ -16,7 +18,7 @@ use MediaWiki\User\UserIdentity;
 class CargoHooks {
 
 	public static function registerExtension() {
-		define( 'CARGO_VERSION', '3.7' );
+		define( 'CARGO_VERSION', '3.9' );
 	}
 
 	public static function initialize() {
@@ -67,9 +69,17 @@ class CargoHooks {
 		if ( $title->isSpecialPage() ) {
 			$cargoSpecialPageIDs = [
 				SpecialPage::getTitleFor( 'CargoQuery' )->getDBkey(),
-				SpecialPage::getTitleFor( 'CargoExport' )->getDBkey()
+				SpecialPage::getTitleFor( 'CargoExport' )->getDBkey(),
+				SpecialPage::getTitleFor( 'Drilldown' )->getDBkey()
 			];
-			if ( !in_array( $title->getDBkey(), $cargoSpecialPageIDs ) ) {
+			$titleDBKey = $title->getDBkey();
+			// Handle pages of the form Special:Drilldown/TableName
+			$lastSlashPos = strrpos( $titleDBKey, '/' );
+			if ( $lastSlashPos !== false ) {
+				$titleDBKey = substr( $titleDBKey, 0, $lastSlashPos );
+			}
+
+			if ( !in_array( $titleDBKey, $cargoSpecialPageIDs ) ) {
 				return;
 			}
 		}
@@ -107,7 +117,13 @@ class CargoHooks {
 			return;
 		}
 
-		if ( $skinTemplate->getUser()->isAllowed( 'purge' ) ) {
+		// This code previously checked for the 'purge' permission,
+		// but in MW 1.43 'purge' was made an "implicit right", given
+		// to all users. So instead we display the "purge" tab for only
+		// logged-in users.
+		// @todo There should probably a new permission like
+		// 'cargo-purge', allowing for fine-grained control.
+		if ( $skinTemplate->getUser()->isRegistered() ) {
 			$skinTemplate->getOutput()->addModules( 'ext.cargo.purge' );
 			$links['actions']['cargo-purge'] = [
 				'class' => false,
@@ -252,6 +268,11 @@ class CargoHooks {
 		RevisionRecord $revisionRecord,
 		EditResult $editResult
 	) {
+		// Only operate on wikitext pages.
+		if ( $revisionRecord->getContent( SlotRecord::MAIN )->getModel() !== CONTENT_MODEL_WIKITEXT ) {
+			return;
+		}
+
 		// First, delete the existing data.
 		$pageID = $wikiPage->getID();
 		self::deletePageFromSystem( $pageID );
@@ -261,11 +282,18 @@ class CargoHooks {
 		// Even though the page will get parsed again after the save,
 		// we need to parse it here anyway, for the settings we
 		// added to remain set.
-		CargoStore::$settings['origin'] = 'page save';
-		CargoUtils::parsePageForStorage(
-			$wikiPage->getTitle(),
-			$revisionRecord->getContent( SlotRecord::MAIN )->getText()
-		);
+		try {
+			CargoStore::$settings['origin'] = 'page save';
+			CargoUtils::parsePageForStorage(
+				$wikiPage->getTitle(),
+				$revisionRecord->getContent( SlotRecord::MAIN )->getText()
+			);
+		} finally {
+			// Clear the global flag. Leaving it isn't a huge deal in a web request, but if it persists inside a job
+			// runner process, #cargo_store will start writing data inside every parse that happens for the remainder
+			// of the process' life-time.
+			unset( CargoStore::$settings['origin'] );
+		}
 
 		// Also, save data to any relevant "special tables", if they
 		// exist.
@@ -278,7 +306,7 @@ class CargoHooks {
 	public static function saveToSpecialTables( $title ) {
 		$cdb = CargoUtils::getDB();
 		$useReplacementTable = $cdb->tableExists( '_pageData__NEXT', __METHOD__ );
-		CargoPageData::storeValuesForPage( $title, $useReplacementTable, false );
+		CargoPageData::storeValuesForPage( $title, $useReplacementTable );
 		if ( $title->getNamespace() == NS_FILE ) {
 			$useReplacementTable = $cdb->tableExists( '_fileData__NEXT', __METHOD__ );
 			CargoFileData::storeValuesForFile( $title, $useReplacementTable );
@@ -464,10 +492,11 @@ class CargoHooks {
 	}
 
 	/**
-	 * We use hooks to modify the _categories field in _pageData, instead of
-	 * saving it on page save as is done with all other fields (in _pageData
-	 * and elsewhere), because the categories information is often not set
-	 * until after the page has already been saved, due to the use of jobs.
+	 * We use hooks to update the _categories field in _pageData after a
+	 * category addition or removal. Categories are also stored at page-save
+	 * time, but the categorylinks table may not be updated by then in all
+	 * cases (e.g. when jobs are involved), so these hooks serve as a
+	 * self-correcting mechanism.
 	 * We can use the same function for both adding and removing categories
 	 * because it's almost the same code either way.
 	 * If anything gets messed up in this process, the data can be recreated

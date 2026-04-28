@@ -8,7 +8,10 @@
  * @author Alexander Mashin.
  */
 
-class CargoLuaLibrary extends Scribunto_LuaLibraryBase {
+use MediaWiki\Extension\Scribunto\Engines\LuaCommon\LibraryBase;
+use MediaWiki\Extension\Scribunto\Engines\LuaCommon\LuaError;
+
+class CargoLuaLibrary extends LibraryBase {
 
 	/**
 	 * Register two Lua bindings: mw.ext.cargo.query and mw.ext.cargo.format
@@ -32,7 +35,7 @@ class CargoLuaLibrary extends Scribunto_LuaLibraryBase {
 	 * @param array|null $args
 	 * @return array[]
 	 * @throws MWException
-	 * @throws Scribunto_LuaError
+	 * @throws LuaError
 	 */
 	public function cargoQuery( $tables, $fields, $args ): array {
 		$this->checkType( 'query', 1, $tables, 'string' );
@@ -53,7 +56,7 @@ class CargoLuaLibrary extends Scribunto_LuaLibraryBase {
 			$rows = $query->run();
 		} catch ( Exception $e ) {
 			// Allow for error handling within Lua.
-			throw new Scribunto_LuaError( $e->getMessage() );
+			throw new LuaError( $e->getMessage() );
 		}
 
 		$result = [];
@@ -133,9 +136,9 @@ class CargoLuaLibrary extends Scribunto_LuaLibraryBase {
 	 * @param string $table
 	 * @param array $args
 	 */
-	public function cargoStore( string $table, array $args ) {
-		$this->checkType( 'query', 1, $table, 'string' );
-		$this->checkType( 'query', 2, $args, 'table' );
+	public function cargoStore( $table, $args ): void {
+		$this->checkType( 'store', 1, $table, 'string' );
+		$this->checkType( 'store', 2, $args, 'table' );
 		$parser = $this->getParser();
 		CargoStore::storeTable( $parser, $table, $args );
 	}
@@ -143,11 +146,22 @@ class CargoLuaLibrary extends Scribunto_LuaLibraryBase {
 	/**
 	 * Implementation of mw.ext.cargo.declare.
 	 *
-	 * @param array $args
+	 * @param array $rawArgs
 	 */
-	public function cargoDeclare( array $args ) {
-		$this->checkType( 'query', 1, $args, 'table' );
+	public function cargoDeclare( $rawArgs ): array {
+		$this->checkType( 'declare', 1, $rawArgs, 'table' );
+
+		// Type-check and trim the argument table's keys and values. This is expected by CargoDeclare::declareTable.
+		// In the equivalent wikitext parser function, trimming is done by the function entrypoint (CargoDeclare::run)
+		// as part of argument parsing - but we can't go through that exact path here.
+		$args = [];
+		foreach ( $rawArgs as $argKey => $argValue ) {
+			$this->checkType( 'declare argument table key', 1, $argKey, 'string' );
+			$this->checkType( 'declare argument table value', 1, $argValue, 'string' );
+			$args[trim( $argKey )] = trim( $argValue );
+		}
+
 		$parser = $this->getParser();
-		CargoDeclare::declareTable( $parser, $args );
+		return [ CargoDeclare::declareTable( $parser, $args ) ];
 	}
 }

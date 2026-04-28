@@ -6,6 +6,9 @@
  * @ingroup Cargo
  */
 
+use MediaWiki\Html\Html;
+use Wikimedia\Rdbms\DBQueryError;
+
 class SpecialCargoQuery extends SpecialPage {
 
 	/**
@@ -26,19 +29,25 @@ class SpecialCargoQuery extends SpecialPage {
 		$out->addModules( 'ext.cargo.main' );
 		$out->addModules( 'ext.cargo.cargoquery' );
 
+		// Using the 'tables' query parameter as an indicator of a user query being present.
 		if ( $req->getCheck( 'tables' ) ) {
 			// Allow operators to control how many Cargo queries any one user can run.
 			if ( $this->getUser()->pingLimiter( 'cargo-query' ) ) {
 				throw new ThrottledError();
 			}
 
+			// Execute the user's query:
+			// - CargoQueryPage gathers its data from the request's query parameters, and validates it. An exception
+			//   will be thrown in case of a violation.
+			// - The execution itself may naturally result in a DB query error.
+			// In both error states, we want to gracefully catch the exception (just like #cargo_query does) and still
+			// render the query editing interface to let the user do adjustments.
 			try {
 				$rep = new CargoQueryPage();
-			} catch ( MWException $e ) {
+				$rep->execute( $query );
+			} catch ( MWException | DBQueryError $e ) {
 				$out->addHTML( CargoUtils::formatError( $e->getMessage() ) );
-				return;
 			}
-			$rep->execute( $query );
 		}
 
 		$formHTML = $this->displayInputForm();
@@ -74,7 +83,7 @@ class SpecialCargoQuery extends SpecialPage {
 			'classes' => [ 'ext-cargo-' . $fieldName ],
 			'value' => $req->getVal( $fieldName )
 		] );
-		$row .= "\n\t" . Html::rawElement( 'td', null, $input );
+		$row .= "\n\t" . Html::rawElement( 'td', [], $input );
 		return Html::rawElement( 'tr', [ 'class' => 'ext-cargo-tr-' . $fieldName ], $row ) . "\n";
 	}
 
@@ -87,7 +96,7 @@ class SpecialCargoQuery extends SpecialPage {
 			'classes' => [ 'ext-cargo-' . $fieldName ],
 			'value' => $req->getVal( $fieldName )
 		] );
-		$row .= "\n\t" . Html::rawElement( 'td', null, $input ) . "\n";
+		$row .= "\n\t" . Html::rawElement( 'td', [], $input ) . "\n";
 		return Html::rawElement( 'tr', [ 'class' => 'ext-cargo-tr-' . $fieldName ], $row ) . "\n";
 	}
 

@@ -4,7 +4,12 @@
  * @file
  */
 
+use MediaWiki\Feed\AtomFeed;
+use MediaWiki\Feed\FeedItem;
+use MediaWiki\Feed\RSSFeed;
+use MediaWiki\Html\Html;
 use MediaWiki\MediaWikiServices;
+use MediaWiki\Title\Title;
 
 /**
  * Handle the feed export format.
@@ -57,7 +62,7 @@ class CargoFeedFormat extends CargoDeferredFormat {
 
 		// Output full anchor element. The array_filter is to avoid empty params.
 		$export = SpecialPage::getTitleFor( 'CargoExport' );
-		return Html::rawElement( 'a', [ 'href' => $export->getFullURL( array_filter( $queryParams ) ) ], $linkText );
+		return Html::element( 'a', [ 'href' => $export->getFullURL( array_filter( $queryParams ) ) ], $linkText );
 	}
 
 	/**
@@ -119,9 +124,9 @@ class CargoFeedFormat extends CargoDeferredFormat {
 					$wikiPage = new WikiPage( $title );
 					$parserOutput = $contentRenderer->getParserOutput( $wikiPage->getContent(), $title, null, $parserOptions );
 				}
-				$description = $parserOutput->getText();
+				$description = $parserOutput->runOutputPipeline( $parserOptions )->getContentHolderText();
 				$item = new FeedItem(
-					$queryResult['title'] ?? $queryResult['_pageName'] ?? '',
+					htmlspecialchars_decode( $queryResult['title'] ?? $queryResult['_pageName'] ?? '' ),
 					$description,
 					$queryResult['url'] ?? $title->getCanonicalURL(),
 					$queryResult[$dateFields[0]] ?? '',

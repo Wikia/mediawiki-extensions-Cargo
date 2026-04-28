@@ -6,9 +6,12 @@
  * @ingroup Cargo
  */
 
+use MediaWiki\Html\Html;
+use MediaWiki\Linker\Linker;
 use MediaWiki\Linker\LinkRenderer;
 use MediaWiki\Linker\LinkTarget;
 use MediaWiki\MediaWikiServices;
+use MediaWiki\Title\Title;
 
 class CargoUtils {
 
@@ -92,38 +95,24 @@ class CargoUtils {
 	 * Provides a reference to the main (not the Cargo) database for read
 	 * access.
 	 *
-	 * @return \Wikimedia\Rdbms\IMaintainableDatabase
+	 * @return \Wikimedia\Rdbms\IReadableDatabase
 	 */
 	public static function getMainDBForRead() {
-		$lbFactory = MediaWikiServices::getInstance()->getDBLoadBalancerFactory();
-		if ( method_exists( $lbFactory, 'getReplicaDatabase' ) ) {
-			// MW 1.40+
-			// The correct type \Wikimedia\Rdbms\IReadableDatabase cannot be used
-			// as return type, as that class only exists since 1.40.
-			// @phan-suppress-next-line PhanTypeMismatchReturnSuperType
-			return $lbFactory->getReplicaDatabase();
-		} else {
-			// @phan-suppress-next-line PhanTypeMismatchReturnSuperType
-			return $lbFactory->getMainLB()->getConnection( DB_REPLICA );
-		}
+		return MediaWikiServices::getInstance()
+			->getDBLoadBalancerFactory()
+			->getReplicaDatabase();
 	}
 
 	/**
 	 * Provides a reference to the main (not the Cargo) database for write
 	 * access.
 	 *
-	 * @return \Wikimedia\Rdbms\IMaintainableDatabase
+	 * @return \Wikimedia\Rdbms\IDatabase
 	 */
 	public static function getMainDBForWrite() {
-		$lbFactory = MediaWikiServices::getInstance()->getDBLoadBalancerFactory();
-		if ( method_exists( $lbFactory, 'getPrimaryDatabase' ) ) {
-			// MW 1.40+
-			// @phan-suppress-next-line PhanTypeMismatchReturnSuperType
-			return $lbFactory->getPrimaryDatabase();
-		} else {
-			// @phan-suppress-next-line PhanTypeMismatchReturnSuperType
-			return $lbFactory->getMainLB()->getConnection( DB_PRIMARY );
-		}
+		return MediaWikiServices::getInstance()
+			->getDBLoadBalancerFactory()
+			->getPrimaryDatabase();
 	}
 
 	/**
@@ -200,7 +189,7 @@ class CargoUtils {
 	}
 
 	public static function displayErrorMessage( OutputPage $out, Message $message ) {
-		$out->wrapWikiTextAsInterface( 'error', $message->plain() );
+		$out->addWikiTextAsInterface( '<div class="error">' . $message->plain() . '</div>' );
 	}
 
 	public static function getTables() {
@@ -586,7 +575,7 @@ class CargoUtils {
 			$parserOptions = ParserOptions::newFromAnon();
 			$parserForInnerParse = MediaWikiServices::getInstance()->getParserFactory()->create();
 			$parserOutput = $parserForInnerParse->parse( $value, $title, $parserOptions );
-			$value = $parserOutput->getText( [ 'unwrap' => true ] );
+			$value = $parserOutput->runOutputPipeline( $parserOptions, [ 'unwrap' => true ] )->getContentHolderText();
 		} else {
 			$value = $parser->internalParse( $value );
 		}
@@ -939,8 +928,9 @@ class CargoUtils {
 	}
 
 	public static function createTable( $cdb, $tableName, $fieldsInTable, $multipleColumnIndex = false ) {
-		global $wgCargoDBRowFormat;
-
+		$conf = MediaWikiServices::getInstance()->getMainConfig();
+		$cargoDBTableOptions = $conf->get( 'CargoDBTableOptions' );
+		$cargoDBRowFormat = $conf->get( 'CargoDBRowFormat' );
 		// Unfortunately, there is not yet a 'CREATE TABLE' wrapper
 		// in the MediaWiki DB API, so we have to call SQL directly.
 		$dbType = $cdb->getType();
@@ -982,10 +972,19 @@ class CargoUtils {
 		}
 
 		$createSQL .= ' )';
-		// Allow for setting a format like COMPRESSED, DYNAMIC etc.
-		if ( $wgCargoDBRowFormat != null ) {
-			$createSQL .= " ROW_FORMAT=$wgCargoDBRowFormat";
+
+		// Add table charset options.
+		$createSQLSuffixes = [];
+
+		if ( $cargoDBTableOptions != null ) {
+			$createSQLSuffixes[] = $cargoDBTableOptions;
 		}
+		// Allow for setting a format like COMPRESSED, DYNAMIC etc.
+		if ( $cargoDBRowFormat != null ) {
+			$createSQLSuffixes[] = "ROW_FORMAT=$cargoDBRowFormat";
+		}
+		$createSQL .= " " . implode( ', ', $createSQLSuffixes );
+
 		$cdb->query( $createSQL, __METHOD__ );
 
 		// Add an index for any field that's not of type Text,
@@ -1122,7 +1121,7 @@ class CargoUtils {
 	 * - though that one is in Javascript.
 	 */
 	public static function parseCoordinatesString( $coordinatesString ) {
-		$coordinatesString = trim( $coordinatesString );
+		$coordinatesString = trim( $coordinatesString ?? '' );
 		if ( $coordinatesString === '' ) {
 			// FIXME: No caller expects this!
 			return;
@@ -1406,5 +1405,24 @@ class CargoUtils {
 			return null;
 		}
 		return $content->getText();
+	}
+
+	/**
+	 * Retrieve a value from the display params and turn it into a safe size string for use in CSS.
+	 */
+	public static function getCSSSize( array $displayParams, string $key, ?string $default ): ?string {
+		$val = $displayParams[$key] ?? '';
+		if ( $val === '' ) {
+			return $default;
+		}
+		// Add on "px", if no unit is defined.
+		if ( is_numeric( $val ) ) {
+			$val .= "px";
+		}
+		$cssSizeRegex = '/^(-?\d+(\.\d+)?(em|ex|%|px|cm|mm|in|pt|pc|ch|rem|vh|vw|vmin|vmax)|0)$/';
+		if ( !preg_match( $cssSizeRegex, $val ) ) {
+			return $default;
+		}
+		return $val;
 	}
 }

@@ -15,15 +15,15 @@ class CargoQueryPage extends QueryPage {
 		parent::__construct( $name );
 
 		$req = $this->getRequest();
-		$tablesStr = trim( $req->getVal( 'tables' ) );
-		$fieldsStr = trim( $req->getVal( 'fields' ) );
-		$whereStr = trim( $req->getVal( 'where' ) );
-		$joinOnStr = trim( $req->getVal( 'join_on' ) );
-		$groupByStr = trim( $req->getVal( 'group_by' ) );
+		$tablesStr = trim( $req->getVal( 'tables' ) ?? '' );
+		$fieldsStr = trim( $req->getVal( 'fields' ) ?? '' );
+		$whereStr = trim( $req->getVal( 'where' ) ?? '' );
+		$joinOnStr = trim( $req->getVal( 'join_on' ) ?? '' );
+		$groupByStr = trim( $req->getVal( 'group_by' ) ?? '' );
 		if ( substr( $groupByStr, -1, 1 ) == ',' ) {
 			$groupByStr = substr( $groupByStr, 0, -1 ); // Remove last comma for group by
 		}
-		$havingStr = trim( $req->getVal( 'having' ) );
+		$havingStr = trim( $req->getVal( 'having' ) ?? '' );
 
 		$orderByStr = "";
 		$orderByValues = $req->getArray( 'order_by' );
@@ -43,13 +43,13 @@ class CargoQueryPage extends QueryPage {
 		if ( substr( $orderByStr, -1, 1 ) == ',' ) {
 			$orderByStr = substr( $orderByStr, 0, -1 ); // Remove last comma for order by
 		}
-		$limitStr = trim( $req->getVal( 'limit' ) );
-		$offsetStr = trim( $req->getVal( 'offset' ) );
+		$limitStr = trim( $req->getVal( 'limit' ) ?? '' );
+		$offsetStr = trim( $req->getVal( 'offset' ) ?? '' );
 
 		$this->sqlQuery = CargoSQLQuery::newFromValues( $tablesStr, $fieldsStr, $whereStr, $joinOnStr,
 				$groupByStr, $havingStr, $orderByStr, $limitStr, $offsetStr );
 
-		$formatStr = trim( $req->getVal( 'format' ) );
+		$formatStr = trim( $req->getVal( 'format' ) ?? '' );
 		$this->format = $formatStr;
 
 		// This is needed for both the results display and the
@@ -61,8 +61,8 @@ class CargoQueryPage extends QueryPage {
 			// into underlines.
 			$paramName = str_replace( '_', ' ', $key );
 			if ( in_array( $paramName,
-				[ 'title', 'tables', 'fields', 'join on', 'order by', 'group by', 'having', 'format',
-				'offset' ] ) ) {
+				[ 'title', 'tables', 'fields', 'where', 'join on',
+				'order by', 'group by', 'having', 'format', 'offset' ] ) ) {
 				// Not display params.
 			} elseif ( in_array( $paramName, [ 'intro', 'outro', 'default' ] ) ) {
 				// These already get parsed/escaped during regular display, so no need to
@@ -164,7 +164,7 @@ class CargoQueryPage extends QueryPage {
 	}
 
 	public function getOrderFields() {
-		return $this->sqlQuery->mOrderBy;
+		return $this->sqlQuery->getOrderBy();
 	}
 
 	public function sortDescending() {

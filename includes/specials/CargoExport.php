@@ -8,6 +8,8 @@
  * @ingroup Cargo
  */
 
+use MediaWiki\Title\Title;
+
 class CargoExport extends UnlistedSpecialPage {
 
 	/**
@@ -118,6 +120,7 @@ class CargoExport extends UnlistedSpecialPage {
 	 * Used for calendar format
 	 */
 	private function displayCalendarData( $sqlQueries ) {
+		$cdb = CargoUtils::getDB();
 		$req = $this->getRequest();
 
 		$colorArray = $req->getArray( 'color' );
@@ -145,7 +148,9 @@ class CargoExport extends UnlistedSpecialPage {
 				} else {
 					$endDateFieldName = $startDateFieldName;
 				}
-				$where .= "($endDateFieldName >= '$datesLowerLimit' AND $startDateFieldName < '$datesUpperLimit')";
+				$escapedLowerLimit = $cdb->addQuotes( $datesLowerLimit );
+				$escapedUpperLimit = $cdb->addQuotes( $datesUpperLimit );
+				$where .= "($endDateFieldName >= $escapedLowerLimit AND $startDateFieldName < $escapedUpperLimit)";
 			}
 			$where .= ")";
 			$sqlQuery->mWhereStr = $where;
@@ -302,44 +307,18 @@ class CargoExport extends UnlistedSpecialPage {
 		foreach ( $sqlQueries as $sqlQuery ) {
 			$queryResults = $sqlQuery->run();
 			foreach ( $queryResults as $queryResult ) {
-				if ( array_key_exists( 'name', $queryResult ) ) {
-					$name = $queryResult['name'];
-				} else {
-					$name = reset( $queryResult );
-				}
-				if ( array_key_exists( 'label', $queryResult ) ) {
-					$label = $queryResult['label'];
-				} else {
-					$label = "";
-				}
-				if ( array_key_exists( 'type', $queryResult ) ) {
-					$eventType = $queryResult['type'];
-				} else {
+				// Type is mandatory.
+				if ( !array_key_exists( 'type', $queryResult ) ) {
 					continue;
-				}
-				if ( array_key_exists( 'sources', $queryResult ) ) {
-					$source = $queryResult['sources'];
-				} else {
-					$source = "";
-				}
-				if ( array_key_exists( 'flowLabels', $queryResult ) ) {
-					$flowLabels = $queryResult['flowLabels'];
-				} else {
-					$flowLabels = "";
-				}
-				if ( array_key_exists( 'linked', $queryResult ) ) {
-					$linkedpage = $queryResult['linked'];
-				} else {
-					$linkedpage = "";
 				}
 
 				$curEvent = [
-					'name' => $name,
-					'label' => $label,
-					'type' => $eventType,
-					'source' => $source,
-					'linkedpage' => $linkedpage,
-					'flowLabels' => $flowLabels
+					'name' => $queryResult['name'] ?? reset( $queryResult ),
+					'label' => $queryResult['label'] ?? "",
+					'type' => $queryResult['type'],
+					'source' => $queryResult['sources'] ?? "",
+					'linkedpage' => $queryResult['linked'] ?? "",
+					'flowLabels' => $queryResult['flowLabels'] ?? ""
 				];
 
 				if ( str_contains( $curEvent['type'], 'Event' ) ) {
@@ -387,44 +366,33 @@ class CargoExport extends UnlistedSpecialPage {
 				$XML .= '"></bpmn:' . $task['type'] . '>';
 			}
 		}
+
 		foreach ( $elements as $element ) {
 			if ( !array_key_exists( 'source', $element ) ) {
 				continue;
 			}
 			$sources = explode( ", ", $element['source'] );
 			$labels = explode( ", ", $element['flowLabels'] );
-			if ( count( $sources ) == 1 ) {
-				$sourceElementName = $element['source'];
+
+			foreach ( $sources as $sourceNum => $sourceElementName ) {
 				$key = array_search( $sourceElementName, array_column( $elements, 'name' ) );
 				if ( $key === false ) {
-						continue;
+					continue;
 				}
 				$sequenceFlows[] = [
-						'type' => 'sequenceFlow',
-						'source' => $elements[$key]['id'],
-						'target' => $element['id'],
-						'name' => $element['flowLabels'],
-						'id' => 'sequenceFlow' . ( count( $sequenceFlows ) + 1 )
+					'type' => 'sequenceFlow',
+					'source' => $elements[$key]['id'],
+					'target' => $element['id'],
+					'name' => $element['flowLabels'],
+					'id' => 'sequenceFlow' . ( count( $sequenceFlows ) + 1 )
 				];
-			} else {
-				foreach ( $sources as $sourceNum => $sourceElementName ) {
-					$key = array_search( $sourceElementName, array_column( $elements, 'name' ) );
-					if ( $key === false ) {
-							continue;
-					}
-					$sequenceFlows[] = [
-						'type' => 'sequenceFlow',
-						'source' => $elements[$key]['id'],
-						'target' => $element['id'],
-						'name' => $labels[$sourceNum],
-						'id' => 'sequenceFlow' . ( count( $sequenceFlows ) + 1 )
-					];
-				}
 			}
 		}
+
 		foreach ( $sequenceFlows as $task ) {
 			if ( is_array( $task ) && $task['type'] == "sequenceFlow" ) {
-				$XML .= '<bpmn:sequenceFlow id="' . $task['id'] . '" sourceRef="' . $task['source'] . '" targetRef="' . $task['target'] . '" name="' . $task['name'] . '"/>';
+				$XML .= '<bpmn:sequenceFlow id="' . $task['id'] . '" sourceRef="' . $task['source'] .
+					'" targetRef="' . $task['target'] . '" name="' . $task['name'] . '"/>';
 			}
 		}
 		$XML .= '</bpmn:process></bpmn:definitions>';
@@ -440,6 +408,26 @@ class CargoExport extends UnlistedSpecialPage {
 
 			foreach ( $queryResults as $queryResult ) {
 				$eventDescription = '';
+				$firstField = true;
+				foreach ( $sqlQuery->mFieldDescriptions as $fieldName => $fieldDescription ) {
+					// Don't display the first field (it'll
+					// be the title), or the main date fields.
+					if ( $firstField ) {
+						$firstField = false;
+						continue;
+					}
+					if ( $fieldName == $startDateField || $fieldName == $endDateField ) {
+						continue;
+					}
+					if ( !array_key_exists( $fieldName, $queryResult ) ) {
+						continue;
+					}
+					$fieldValue = $queryResult[$fieldName];
+					if ( trim( $fieldValue ) == '' ) {
+						continue;
+					}
+					$eventDescription .= "<strong>$fieldName:</strong> $fieldValue<br />\n";
+				}
 
 				if ( array_key_exists( 'name', $queryResult ) ) {
 					$eventTitle = $queryResult['name'];

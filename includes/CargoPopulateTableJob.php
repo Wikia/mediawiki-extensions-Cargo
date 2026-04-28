@@ -7,6 +7,8 @@
  * @author Yaron Koren
  */
 
+use MediaWiki\Title\Title;
+
 class CargoPopulateTableJob extends Job {
 
 	/**
@@ -53,7 +55,7 @@ class CargoPopulateTableJob extends Job {
 		// If it was requested, delete all the existing rows for
 		// this page in this Cargo table. This is only necessary
 		// if the table wasn't just dropped and recreated.
-		if ( $this->params['replaceOldRows'] == true ) {
+		if ( $this->params['replaceOldRows'] ?? false ) {
 			$cdb = CargoUtils::getDB();
 			$cdb->begin( __METHOD__ );
 			$cdb->delete( $this->params['dbTableName'], [ '_pageID' => $page->getID() ], __METHOD__ );
@@ -63,14 +65,17 @@ class CargoPopulateTableJob extends Job {
 		// All we need to do here is set some global variables based
 		// on the parameters of this job, then parse the page -
 		// the #cargo_store function will take care of the rest.
-		CargoStore::$settings['origin'] = 'template';
-		CargoStore::$settings['dbTableName'] = $this->params['dbTableName'];
-		CargoUtils::parsePageForStorage( $this->title, CargoUtils::getContentText( $page->getContent() ) );
-
-		// We need to unset this, if the job was called via runJobs.php,
-		// so that it doesn't affect other (non-Cargo) jobs, like page
-		// refreshes.
-		unset( CargoStore::$settings['origin'] );
+		try {
+			CargoStore::$settings['origin'] = 'template';
+			CargoStore::$settings['dbTableName'] = $this->params['dbTableName'];
+			CargoUtils::parsePageForStorage( $this->title, CargoUtils::getContentText( $page->getContent() ) );
+		} finally {
+			// We need to unset this, if the job was called via runJobs.php, so that it doesn't affect other (non-Cargo)
+			// jobs, like page refreshes.
+			// This must be done in a 'finally' block so that if parsePageForStorage throws an exception, the flag is
+			// still cleared.
+			unset( CargoStore::$settings['origin'] );
+		}
 
 		return true;
 	}

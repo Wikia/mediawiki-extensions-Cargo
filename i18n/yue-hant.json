@@ -1,9 +1,9 @@
 {
 	"@metadata": {
 		"authors": [
+			"H78c67c",
 			"JeffreyKim",
-			"Ktchankt",
-			"H78c67c"
+			"Ktchankt"
 		]
 	},
 	"cargo-desc": "模入面嘅資料嘅儲存同查詢",

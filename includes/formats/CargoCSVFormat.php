@@ -4,6 +4,8 @@
  * @ingroup Cargo
  */
 
+use MediaWiki\Html\Html;
+
 class CargoCSVFormat extends CargoDeferredFormat {
 
 	public static function allowedParameters() {
@@ -42,9 +44,7 @@ class CargoCSVFormat extends CargoDeferredFormat {
 		$linkAttrs = [
 			'href' => $ce->getFullURL( $queryParams ),
 		];
-		$text = Html::rawElement( 'a', $linkAttrs, $linkText );
-
-		return $text;
+		return Html::element( 'a', $linkAttrs, $linkText );
 	}
 
 }

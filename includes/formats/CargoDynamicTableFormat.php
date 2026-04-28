@@ -8,6 +8,8 @@
  * @ingroup Cargo
  */
 
+use MediaWiki\Html\Html;
+
 class CargoDynamicTableFormat extends CargoDisplayFormat {
 
 	public static function allowedParameters() {
@@ -30,7 +32,12 @@ class CargoDynamicTableFormat extends CargoDisplayFormat {
 	public function display( $valuesTable, $formattedValuesTable, $fieldDescriptions, $displayParams ) {
 		$this->mOutput->addModules( [ 'ext.cargo.datatables' ] );
 
-		$tableAttrs = [ 'class' => 'cargoDynamicTable display', 'cellspacing' => '0', 'width' => '100%' ];
+		$tableAttrs = [
+			'class' => 'cargoDynamicTable display',
+			'cellspacing' => '0',
+			'width' => '100%',
+			'data-mw-cargo-dynamic-table' => true,
+		];
 
 		$detailsFields = [];
 		if ( array_key_exists( 'details fields', $displayParams ) && !empty( $displayParams[ 'details fields' ] ) ) {
@@ -48,7 +55,7 @@ class CargoDynamicTableFormat extends CargoDisplayFormat {
 					$detailsField = str_replace( '_', ' ', $detailsField );
 				}
 			}
-			$tableAttrs['data-details-fields'] = "1";
+			$tableAttrs['data-mw-details-fields'] = "1";
 		}
 		// Special handlng for ordering.
 		$dataTableOrderByParams = [];
@@ -89,17 +96,17 @@ class CargoDynamicTableFormat extends CargoDisplayFormat {
 		$tableAttrs['data-order'] = json_encode( $dataTableOrderByParams );
 
 		if ( array_key_exists( 'rows per page', $displayParams ) && $displayParams['rows per page'] != '' ) {
-			$tableAttrs['data-page-length'] = $displayParams['rows per page'];
+			$tableAttrs['data-mw-page-length'] = $displayParams['rows per page'];
 		}
 		$text = '';
 		if ( array_key_exists( 'column widths', $displayParams ) ) {
 			if ( trim( $displayParams['column widths'] ) != '' ) {
-				$tableAttrs['data-widths'] = $displayParams['column widths'];
+				$tableAttrs['data-mw-widths'] = $displayParams['column widths'];
 			}
 		}
 		if ( array_key_exists( 'header tooltips', $displayParams ) ) {
 			if ( trim( $displayParams['header tooltips'] ) != '' ) {
-				$tableAttrs['data-tooltips'] = $displayParams['header tooltips'];
+				$tableAttrs['data-mw-tooltips'] = $displayParams['header tooltips'];
 			}
 		}
 		if ( array_key_exists( 'hidden fields', $displayParams ) ) {
@@ -136,23 +143,23 @@ class CargoDynamicTableFormat extends CargoDisplayFormat {
 		}
 		$tableContents = '<thead><tr>';
 		if ( $detailsFields ) {
-			$tableContents .= Html::rawElement( 'th', [ 'class' => 'details-control' ], null );
+			$tableContents .= Html::rawElement( 'th', [ 'class' => 'details-control' ] );
 		}
 		foreach ( $fieldDescriptions as $fieldName => $fieldDescription ) {
 			if ( in_array( $fieldName, $detailsFields ) ) {
 				continue;
 			}
 			if ( strpos( $fieldName, 'Blank value ' ) === false ) {
-				$tableContents .= "\t\t\t\t" . Html::element( 'th', null, $fieldName );
+				$tableContents .= "\t\t\t\t" . Html::element( 'th', [], $fieldName );
 			} else {
-				$tableContents .= "\t\t\t\t" . Html::element( 'th', null, null );
+				$tableContents .= "\t\t\t\t" . Html::element( 'th' );
 			}
 		}
 
 		$tableContents .= '</tr></thead><tfoot><tr>';
 
 		if ( $detailsFields ) {
-			$tableContents .= Html::rawElement( 'th', [ 'class' => 'details-control' ], null );
+			$tableContents .= Html::rawElement( 'th', [ 'class' => 'details-control' ] );
 		}
 		foreach ( $fieldDescriptions as $fieldName => $fieldDescription ) {
 			if ( in_array( $fieldName, $detailsFields ) ) {
@@ -160,7 +167,7 @@ class CargoDynamicTableFormat extends CargoDisplayFormat {
 			}
 			if ( $searchableColumns ) {
 				$placeholder = wfMessage( 'cargo-dynamictables-searchcolumn', $fieldName )->escaped();
-				$attribs = [ 'data-placeholder' => $placeholder ];
+				$attribs = [ 'data-mw-placeholder' => $placeholder ];
 			} else {
 				$attribs = null;
 			}
@@ -201,9 +208,9 @@ class CargoDynamicTableFormat extends CargoDisplayFormat {
 			}
 			$detailsTable =
 				Html::rawElement( 'table', [ 'border' => '0', 'cellspacing' => '0' ],
-					Html::rawElement( 'tbody', null, $details ) );
+					Html::rawElement( 'tbody', [], $details ) );
 
-			$tableContents .= Html::rawElement( 'tr', [ 'data-details' => $detailsTable ],
+			$tableContents .= Html::rawElement( 'tr', [ 'data-mw-details' => $detailsTable ],
 				$tableData );
 		}
 

@@ -4,6 +4,8 @@
  * @ingroup Cargo
  */
 
+use MediaWiki\Html\Html;
+
 class CargoJSONFormat extends CargoDeferredFormat {
 
 	public static function allowedParameters() {
@@ -27,9 +29,7 @@ class CargoJSONFormat extends CargoDeferredFormat {
 		$linkAttrs = [
 			'href' => $ce->getFullURL( $queryParams ),
 		];
-		$text = Html::rawElement( 'a', $linkAttrs, wfMessage( 'cargo-viewjson' )->text() );
-
-		return $text;
+		return Html::element( 'a', $linkAttrs, wfMessage( 'cargo-viewjson' )->text() );
 	}
 
 }

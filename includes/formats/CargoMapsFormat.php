@@ -4,6 +4,10 @@
  * @ingroup Cargo
  */
 
+use MediaWiki\Html\Html;
+use MediaWiki\MediaWikiServices;
+use MediaWiki\Title\Title;
+
 class CargoMapsFormat extends CargoDisplayFormat {
 
 	public static $mappingService = "OpenLayers";
@@ -63,8 +67,6 @@ class CargoMapsFormat extends CargoDisplayFormat {
 	}
 
 	public function getImageData( $fileName ) {
-		global $wgUploadDirectory;
-
 		if ( $fileName == '' ) {
 			return null;
 		}
@@ -74,7 +76,7 @@ class CargoMapsFormat extends CargoDisplayFormat {
 		}
 		$imagePage = new ImagePage( $fileTitle );
 		$file = $imagePage->getDisplayedFile();
-		$filePath = $wgUploadDirectory . '/' . $file->getUrlRel();
+		$filePath = $file->getLocalRefPath();
 		[ $imageWidth, $imageHeight, $type, $attr ] = getimagesize( $filePath );
 		return [ $imageWidth, $imageHeight, $file->getUrl() ];
 	}
@@ -172,7 +174,9 @@ class CargoMapsFormat extends CargoDisplayFormat {
 				if ( $latValue != '' && $lonValue != '' ) {
 					$nameValue = array_shift( $valuesTable[$i] );
 					$titleValue = array_shift( $displayedValuesForRow );
-					if ( $urlValue !== null ) {
+					$urlUtils = MediaWikiServices::getInstance()->getUrlUtils();
+					$hrefRegExp = '/^(' . $urlUtils->validProtocols() . ')[^\s]+$/';
+					if ( $urlValue !== null && preg_match( $hrefRegExp, $urlValue ) ) {
 						$titleValue = Html::element( 'a', [ 'href' => $urlValue ], $titleValue );
 					}
 					$valuesForMap[] = self::getMapPointValues( $nameValue, $titleValue, $latValue, $lonValue, $displayedValuesForRow, $displayParams, $i );
@@ -196,25 +200,8 @@ class CargoMapsFormat extends CargoDisplayFormat {
 			$fileName = null;
 		}
 
-		if ( array_key_exists( 'height', $displayParams ) && $displayParams['height'] != '' ) {
-			$height = $displayParams['height'];
-			// Add on "px", if no unit is defined.
-			if ( is_numeric( $height ) ) {
-				$height .= "px";
-			}
-		} else {
-			$height = null;
-		}
-
-		if ( array_key_exists( 'width', $displayParams ) && $displayParams['width'] != '' ) {
-			$width = $displayParams['width'];
-			// Add on "px", if no unit is defined.
-			if ( is_numeric( $width ) ) {
-				$width .= "px";
-			}
-		} else {
-			$width = null;
-		}
+		$height = CargoUtils::getCSSSize( $displayParams, 'height', null );
+		$width = CargoUtils::getCSSSize( $displayParams, 'width', null );
 
 		if ( $fileName !== null ) {
 			// Do some scaling of the image, if necessary.
