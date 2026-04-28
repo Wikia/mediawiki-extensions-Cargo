@@ -18,7 +18,7 @@ use MediaWiki\User\UserIdentity;
 class CargoHooks {
 
 	public static function registerExtension() {
-		define( 'CARGO_VERSION', '3.8.4' );
+		define( 'CARGO_VERSION', '3.9' );
 	}
 
 	public static function initialize() {
@@ -291,24 +291,22 @@ class CargoHooks {
 		// Even though the page will get parsed again after the save,
 		// we need to parse it here anyway, for the settings we
 		// added to remain set.
-
-		// Fandom-start
-		// Issue: CargoStore::$settings was set globally and leaked into subsequent parses
-		// (e.g. jobs/Scribunto after move/save), leading to unintended storeTable() behavior
-		// or duplicates. We must scope the setting to THIS single parse only.
-		// @see https://fandom.atlassian.net/browse/UGC-6792
-		self::withCargoSettings( [
-			'origin' => 'page save',
-		], function () use ( $wikiPage, $revisionRecord ) {
+		try {
+			CargoStore::$settings['origin'] = 'page save';
 			CargoUtils::parsePageForStorage(
 				$wikiPage->getTitle(),
 				$revisionRecord->getContent( SlotRecord::MAIN )->getText()
 			);
-			// Also, save data to any relevant "special tables", if they
-			// exist.
-			self::saveToSpecialTables( $wikiPage->getTitle() );
-		} );
-		// Fandom-end
+		} finally {
+			// Clear the global flag. Leaving it isn't a huge deal in a web request, but if it persists inside a job
+			// runner process, #cargo_store will start writing data inside every parse that happens for the remainder
+			// of the process' life-time.
+			unset( CargoStore::$settings['origin'] );
+		}
+
+		// Also, save data to any relevant "special tables", if they
+		// exist.
+		self::saveToSpecialTables( $wikiPage->getTitle() );
 
 		// Invalidate pages that reference this page in their Cargo query results.
 		CargoBackLinks::purgePagesThatQueryThisPage( $pageID );
@@ -497,10 +495,11 @@ class CargoHooks {
 	}
 
 	/**
-	 * We use hooks to modify the _categories field in _pageData, instead of
-	 * saving it on page save as is done with all other fields (in _pageData
-	 * and elsewhere), because the categories information is often not set
-	 * until after the page has already been saved, due to the use of jobs.
+	 * We use hooks to update the _categories field in _pageData after a
+	 * category addition or removal. Categories are also stored at page-save
+	 * time, but the categorylinks table may not be updated by then in all
+	 * cases (e.g. when jobs are involved), so these hooks serve as a
+	 * self-correcting mechanism.
 	 * We can use the same function for both adding and removing categories
 	 * because it's almost the same code either way.
 	 * If anything gets messed up in this process, the data can be recreated

@@ -52,7 +52,7 @@ class CargoQueryAPI extends ApiBase {
 		$formattedData = [];
 		foreach ( $queryResults as $row ) {
 			// We HTML-unescape the values, because the API display will escape them again.
-			$formattedData[] = [ 'title' => array_map( 'html_entity_decode', $row ) ];
+			$formattedData[] = [ 'title' => array_map( static fn ( $value ) => html_entity_decode( $value ?? '' ), $row ) ];
 		}
 
 		// Set top-level elements.

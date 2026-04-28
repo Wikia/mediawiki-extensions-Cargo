@@ -2,8 +2,10 @@
 	"@metadata": {
 		"authors": [
 			"Batumski brodyaga",
+			"Daisy40",
 			"Iniquity",
 			"Irus",
+			"Kaganer",
 			"Kareyac",
 			"Katunchik",
 			"Lopusanski",
@@ -18,15 +20,16 @@
 			"Sunpriat",
 			"Thothsum",
 			"Vlad5250",
+			"Vonavy",
 			"Дмитрий"
 		]
 	},
 	"cargo-desc": "Хранение и запрос данных шаблона",
 	"cargo-definestable": "Этот шаблон определяет таблицу «$1».",
-	"cargo-tablenotcreated": "Эту таблицу ещё не было создано.",
+	"cargo-tablenotcreated": "Эта таблица ещё не была создана.",
 	"cargo-addsrows": "Этот шаблон добавляет строки в таблицу «$1», которая объявлена в шаблоне $2.",
 	"cargo-notable": "Ошибка: должно быть указано имя таблицы.",
-	"cargo-unknowntable": "Ошибка: таблица $1 не найдена.",
+	"cargo-unknowntable": "Ошибка: таблица «$1» не найдена.",
 	"recreatedata": "Воссоздать данные",
 	"action-recreatecargodata": "воссоздание данных Cargo",
 	"right-recreatecargodata": "воссоздать данные, содержащиеся в таблицах Cargo",
@@ -89,7 +92,7 @@
 	"cargo-cargotables-action-deletereplacement": "Удалить",
 	"cargo-cargotables-action-delete": "Удалить",
 	"cargo-cargotables-action-recreate": "Создать заново",
-	"cargo-cargotables-beingpopulated": "<strong>Примечание:</strong> Одна или несколько из этих таблиц в настоящее время заполняются через очередь заданий.",
+	"cargo-cargotables-beingpopulated": "'''Примечание:''' Одна или несколько из этих таблиц в настоящее время заполняются через очередь заданий.",
 	"cargo-cargotables-tablelist": "{{PLURAL:$1|Определена следующая таблица|Определены следующие таблицы}}:",
 	"cargo-cargotables-viewtable": "Просмотр таблицы: $1",
 	"cargo-cargotables-viewtablelink": "Просмотр таблицы",

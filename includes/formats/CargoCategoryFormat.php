@@ -30,7 +30,10 @@ class CargoCategoryFormat extends CargoListFormat {
 			$numColumns = 3;
 		}
 		if ( array_key_exists( 'header field', $displayParams ) ) {
-			$headerField = str_replace( '_', ' ', $displayParams['header field'] );
+			$headerField = $displayParams['header field'];
+			if ( $headerField[0] != '_' ) {
+				$headerField = str_replace( '_', ' ', $headerField );
+			}
 			if ( count( $valuesTable ) > 0 && !array_key_exists( $headerField, $valuesTable[0] ) ) {
 				throw new MWException( "Error: the header field \"$headerField\" must be among this query's fields." );
 			}
@@ -43,7 +46,7 @@ class CargoCategoryFormat extends CargoListFormat {
 		$num = count( $valuesTable );
 
 		$prev_first_char = "";
-		$rows_per_column = ceil( $num / $numColumns );
+		$rows_per_column = (int)ceil( $num / $numColumns );
 		// Column width is a percentage.
 		$column_width = floor( 100 / $numColumns );
 
