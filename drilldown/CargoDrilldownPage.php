@@ -12,6 +12,7 @@
 
 use MediaWiki\Html\Html;
 use MediaWiki\Title\Title;
+use Wikimedia\Rdbms\FakeResultWrapper;
 use Wikimedia\Rdbms\IDatabase;
 
 class CargoDrilldownPage extends QueryPage {
@@ -38,6 +39,8 @@ class CargoDrilldownPage extends QueryPage {
 	public $curTabName;
 	private $showSingleTable = false;
 	private $isReplacementTable = false;
+	private ?array $queryInfo = null;
+	private ?string $queryErrorText = null;
 
 	/**
 	 * Initialize the variables of this page
@@ -189,10 +192,6 @@ class CargoDrilldownPage extends QueryPage {
 			}
 		}
 		return $url;
-	}
-
-	public function getName() {
-		return "Drilldown";
 	}
 
 	public function isExpensive() {
@@ -1549,7 +1548,15 @@ END;
 		return [ $tableNames, $joinConds, $mainTableName, $mainTableAlias ];
 	}
 
-	public function getQueryInfo() {
+	/**
+	 * This is overridden to perform getQueryInfo's job in a safely manner, since constructing a CargoSQLQuery can fail
+	 * in validation (T412642). In such a (bad) state, an empty result-set is returned and the error is presented to the
+	 * user.
+	 * If the query construction succeeds, proceed as normal.
+	 *
+	 * @inheritDoc
+	 */
+	public function reallyDoQuery( $limit, $offset = false ) {
 		$cdb = CargoUtils::getDB( DB_REPLICA );
 
 		[ $tableNames, $joinConds ] = $this->getInitialQueryParts();
@@ -1559,9 +1566,9 @@ END;
 		$queryOptions['GROUP BY'] = [];
 		// $fieldStr, $whereStr, $groupByStr are required for CargoSQLQuery object
 		if ( !$this->drilldownTabsParams ) {
-			$fieldsStr = [ "$this->tableAlias._pageName" ];
+			$allFields = [ "$this->tableAlias._pageName" ];
 		} else {
-			$fieldsStr = [];
+			$allFields = [];
 		}
 		$whereStr = [];
 		$groupByStr = [];
@@ -1662,12 +1669,12 @@ END;
 						$aliasedFieldNames[$fieldAlias] =
 							CargoUtils::escapedFieldName( $cdb,
 								[ $fieldPartTableAlias => $fieldPartTableName ], $field );
-						$fieldsStr[] = $fieldPartTableAlias . '.' . $field . '=' . $fieldAlias;
+						$allFields[] = $fieldPartTableAlias . '.' . $field . '=' . $fieldAlias;
 					} else {
 						$aliasedFieldNames[$field] =
 							CargoUtils::escapedFieldName( $cdb,
 								[ $fieldPartTableAlias => $fieldPartTableName ], $field );
-						$fieldsStr[] = $fieldPartTableAlias . '.' . $field;
+						$allFields[] = $fieldPartTableAlias . '.' . $field;
 					}
 				}
 				if ( $this->format == 'calendar' ) {
@@ -1698,9 +1705,9 @@ END;
 				CargoUtils::escapedFieldName( $cdb,
 					[ $coordsFieldTableAlias => $coordsFieldTableName ], $coordsFieldName . '__lon' );
 			if ( is_string( $coordsFieldAlias ) ) {
-				$fieldsStr[] = $coordsFieldTableAlias . '.' . $coordsFieldName . '=' . $coordsFieldAlias;
+				$allFields[] = $coordsFieldTableAlias . '.' . $coordsFieldName . '=' . $coordsFieldAlias;
 			} else {
-				$fieldsStr[] = $coordsFieldTableAlias . '.' . $coordsFieldName;
+				$allFields[] = $coordsFieldTableAlias . '.' . $coordsFieldName;
 			}
 		} elseif ( $this->format == 'gallery' ) {
 			if ( !$this->drilldownTabsParams ) {
@@ -1725,9 +1732,9 @@ END;
 						CargoUtils::escapedFieldName( $cdb,
 							[ $fieldTableAlias => $fieldTableName ], '_value' );
 					if ( is_string( $fileFieldAlias ) ) {
-						$fieldsStr[] = $fieldTableAlias . '._value=' . $fileFieldAlias;
+						$allFields[] = $fieldTableAlias . '._value=' . $fileFieldAlias;
 					} else {
-						$fieldsStr[] = $fieldTableAlias . '._value';
+						$allFields[] = $fieldTableAlias . '._value';
 					}
 					$joinConds = array_merge( $joinConds, $curJoinConds );
 				} else {
@@ -1736,9 +1743,9 @@ END;
 							[ $fileFieldTableAlias => $fileFieldTableName ],
 							$fileFieldName );
 					if ( is_string( $fileFieldAlias ) ) {
-						$fieldsStr[] = $fileFieldTableAlias . '.' . $fileFieldName . '=' . $fileFieldAlias;
+						$allFields[] = $fileFieldTableAlias . '.' . $fileFieldName . '=' . $fileFieldAlias;
 					} else {
-						$fieldsStr[] = $fileFieldTableAlias . '.' . $fileFieldName;
+						$allFields[] = $fileFieldTableAlias . '.' . $fileFieldName;
 					}
 				}
 			}
@@ -1788,7 +1795,7 @@ END;
 				foreach ( $this->tableSchema->mFieldDescriptions as $fieldName1 =>
 						  $fieldDescription1 ) {
 					if ( $fieldDescription1->mType == "End date" || $fieldDescription1->mType == "End datetime" ) {
-						$fieldsStr[] = $this->tableAlias . '.' . $fieldName1;
+						$allFields[] = $this->tableAlias . '.' . $fieldName1;
 					}
 				}
 			}
@@ -1806,22 +1813,22 @@ END;
 					$fileDataTableAlias => $fileDataTableName ],
 					'_fullText' );
 				$extraAliasedFields['foundFileMatch'] = '1';
-				$fieldsStr[] = "$fileDataTableAlias._fullText=$fileTextAlias";
+				$allFields[] = "$fileDataTableAlias._fullText=$fileTextAlias";
 			} else {
 				$pageTextAlias = $this->msg( 'cargo-drilldown-pagetext' )->escaped();
 				$aliasedFieldNames[$pageTextAlias] = CargoUtils::escapedFieldName( $cdb, [
 					$pageDataTableAlias => $pageDataTableName ], '_fullText' );
-				$fieldsStr[] = "$pageDataTableAlias._fullText=$pageTextAlias";
+				$allFields[] = "$pageDataTableAlias._fullText=$pageTextAlias";
 			}
 			if ( $this->searchableFiles ) {
 				$fileNameAlias = $this->msg( 'cargo-drilldown-filename' )->escaped();
 				$aliasedFieldNames[$fileNameAlias] = CargoUtils::escapedFieldName( $cdb, [
 					$fileDataTableAlias => $fileDataTableName ], '_pageName' );
-				$fieldsStr[] = "$fileDataTableAlias._pageName=$fileNameAlias";
+				$allFields[] = "$fileDataTableAlias._pageName=$fileNameAlias";
 				$fileTextAlias = $this->msg( 'cargo-drilldown-filetext' )->escaped();
 				$aliasedFieldNames[$fileTextAlias] = CargoUtils::escapedFieldName( $cdb, [
 					$fileDataTableAlias => $fileDataTableName ], '_fullText' );
-				$fieldsStr[] = "$fileDataTableAlias._fullText=$fileTextAlias";
+				$allFields[] = "$fileDataTableAlias._fullText=$fileTextAlias";
 			}
 		}
 
@@ -1855,10 +1862,10 @@ END;
 		}
 		if ( !$this->drilldownTabsParams ) {
 			if ( $this->formatBy && $this->format != 'map' && $this->format != 'gallery' ) {
-				$fieldsStr[] = $this->tableAlias . '.' . $this->formatBy;
+				$allFields[] = $this->tableAlias . '.' . $this->formatBy;
 			}
 		}
-		$fieldsStr = implode( ',', $fieldsStr );
+		$fieldsStr = implode( ',', $allFields );
 		$whereStr = implode( ' AND ', $whereStr );
 		$whereStr = str_replace( 'DAY', 'DAYOFMONTH', $whereStr );
 		$joinOnStr = [];
@@ -1869,16 +1876,26 @@ END;
 			$joinOnStr[] = $joinCondStr;
 		}
 		$joinOnStr = implode( ',', $joinOnStr );
-		$orderByStr = $groupByStr = '';
 		if ( $queryOptions['GROUP BY'] !== null ) {
 			$orderByStr = $groupByStr = implode( ',', $queryOptions['GROUP BY'] );
+		} elseif ( count( $tableNames ) == 1 && count( $allFields ) == 1 ) {
+			$orderByStr = $groupByStr = '_pageName';
+		} else {
+			$orderByStr = $groupByStr = '';
 		}
 		$havingStr = null;
 		$limitStr = $this->limit;
 		$offsetStr = $this->offset;
-		$this->sqlQuery =
-			CargoSQLQuery::newFromValues( $tablesStr, $fieldsStr, $whereStr, $joinOnStr,
-				$groupByStr, $havingStr, $orderByStr, $limitStr, $offsetStr, true );
+
+		// CargoSQLQuery construction may fail here if we have a bad filter - catch any errors
+		try {
+			$this->sqlQuery =
+				CargoSQLQuery::newFromValues( $tablesStr, $fieldsStr, $whereStr, $joinOnStr,
+					$groupByStr, $havingStr, $orderByStr, $limitStr, $offsetStr, true );
+		} catch ( MWException $e ) {
+			$this->queryErrorText = $e->getMessage();
+			return new FakeResultWrapper( [] );
+		}
 
 		// @HACK - the result set may contain both pages and files that
 		// match the search term. So how do we know, for each result
@@ -1895,7 +1912,7 @@ END;
 			$aliasedFieldNames['foundFileMatch'] = CargoUtils::fullTextMatchSQL( $cdb, [ $fileDataTableAlias => $fileDataTableName ], '_fullText', $this->fullTextSearchTerm );
 		}
 
-		$queryInfo = [
+		$this->queryInfo = [
 			'tables' => $tableNames,
 			'fields' => array_merge( $aliasedFieldNames, $extraAliasedFields ),
 			'conds' => $conds,
@@ -1903,7 +1920,16 @@ END;
 			'options' => $queryOptions
 		];
 
-		return $queryInfo;
+		return parent::reallyDoQuery( $limit, $offset );
+	}
+
+	/**
+	 * It is not safe to call this method on its own. See reallyDoQuery for the query construction.
+	 *
+	 * @inheritDoc
+	 */
+	public function getQueryInfo() {
+		return $this->queryInfo;
 	}
 
 	public static function getFullTextSearchQueryParts( $searchTerm, $mainTableName, $mainTableAlias,
@@ -1976,6 +2002,18 @@ END;
 
 	public function sortDescending() {
 		return false;
+	}
+
+	/**
+	 * @inheritDoc
+	 */
+	protected function showEmptyText() {
+		// Display any errors that CargoSQLQuery construction (see reallyDoQuery) may have produced.
+		if ( $this->queryErrorText !== null ) {
+			$this->getOutput()->addHTML( CargoUtils::formatError( $this->queryErrorText ) );
+		}
+
+		parent::showEmptyText();
 	}
 
 	/**

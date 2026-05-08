@@ -29,7 +29,8 @@ class CargoSQLQuery {
 	public $mOrigHavingStr;
 	public $mHavingStr;
 	public $mOrigOrderBy;
-	public $mOrderBy;
+	/** @var string[] */
+	private $mOrderBy = [];
 	public $mQueryLimit;
 	public $mOffset;
 	public $mSearchTerms = [];
@@ -230,7 +231,8 @@ class CargoSQLQuery {
 				// by default - but for regular field names,
 				// not the special ones.
 				// "Real" field = with the table name removed.
-				if ( strpos( $fieldName, '.' ) !== false ) {
+				if ( strpos( $fieldName, '.' ) !== false &&
+					strpos( $fieldName, '(' ) === false ) {
 					[ $tableName, $realFieldName ] = explode( '.', $fieldName, 2 );
 				} else {
 					$realFieldName = $fieldName;
@@ -461,8 +463,19 @@ class CargoSQLQuery {
 		}
 	}
 
-	public function setOrderBy( $orderByStr = null ) {
-		$this->mOrderBy = [];
+	/**
+	 * Get array of ORDER BY clauses (quoted column names with ASC or DESC).
+	 *
+	 * @return string[]
+	 */
+	public function getOrderBy(): array {
+		return $this->mOrderBy;
+	}
+
+	/**
+	 * @param ?string $orderByStr
+	 */
+	public function setOrderBy( ?string $orderByStr = null ) {
 		if ( $orderByStr != '' ) {
 			$orderByElements = CargoUtils::smartSplit( ',', $orderByStr );
 			foreach ( $orderByElements as $elem ) {
@@ -1637,7 +1650,10 @@ class CargoSQLQuery {
 			$selectOptions['HAVING'] = $this->mHavingStr;
 		}
 
-		$selectOptions['ORDER BY'] = $this->mOrderBy;
+		if ( $this->mOrderBy ) {
+			$selectOptions['ORDER BY'] = $this->mOrderBy;
+		}
+
 		$selectOptions['LIMIT'] = $this->mQueryLimit;
 		$selectOptions['OFFSET'] = $this->mOffset;
 

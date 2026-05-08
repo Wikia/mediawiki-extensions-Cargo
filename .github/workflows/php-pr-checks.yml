@@ -75,6 +75,7 @@ jobs:
           echo '$wgShowExceptionDetails = true;' >> LocalSettings.php
           echo '$wgShowDBErrorBacktrace = true;' >> LocalSettings.php
           echo '$wgDevelopmentWarnings = true;' >> LocalSettings.php
+          echo '$wgParserEnableLegacyHeadingDOM = false;' >> LocalSettings.php
           echo 'wfLoadExtension( "'Cargo'" );' >> LocalSettings.php
       - name: Run schema changes
         run: php maintenance/update.php --quick

@@ -1090,7 +1090,7 @@ class CargoUtils {
 	 * - though that one is in Javascript.
 	 */
 	public static function parseCoordinatesString( $coordinatesString ) {
-		$coordinatesString = trim( $coordinatesString );
+		$coordinatesString = trim( $coordinatesString ?? '' );
 		if ( $coordinatesString === '' ) {
 			// FIXME: No caller expects this!
 			return;
@@ -1374,5 +1374,24 @@ class CargoUtils {
 			return null;
 		}
 		return $content->getText();
+	}
+
+	/**
+	 * Retrieve a value from the display params and turn it into a safe size string for use in CSS.
+	 */
+	public static function getCSSSize( array $displayParams, string $key, ?string $default ): ?string {
+		$val = $displayParams[$key] ?? '';
+		if ( $val === '' ) {
+			return $default;
+		}
+		// Add on "px", if no unit is defined.
+		if ( is_numeric( $val ) ) {
+			$val .= "px";
+		}
+		$cssSizeRegex = '/^(-?\d+(\.\d+)?(em|ex|%|px|cm|mm|in|pt|pc|ch|rem|vh|vw|vmin|vmax)|0)$/';
+		if ( !preg_match( $cssSizeRegex, $val ) ) {
+			return $default;
+		}
+		return $val;
 	}
 }

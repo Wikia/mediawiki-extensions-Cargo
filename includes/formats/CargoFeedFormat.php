@@ -124,9 +124,9 @@ class CargoFeedFormat extends CargoDeferredFormat {
 					$wikiPage = new WikiPage( $title );
 					$parserOutput = $contentRenderer->getParserOutput( $wikiPage->getContent(), $title, null, $parserOptions );
 				}
-				$description = $parserOutput->runOutputPipeline( $parser->getOptions() )->getContentHolderText();
+				$description = $parserOutput->runOutputPipeline( $parserOptions )->getContentHolderText();
 				$item = new FeedItem(
-					$queryResult['title'] ?? $queryResult['_pageName'] ?? '',
+					htmlspecialchars_decode( $queryResult['title'] ?? $queryResult['_pageName'] ?? '' ),
 					$description,
 					$queryResult['url'] ?? $title->getCanonicalURL(),
 					$queryResult[$dateFields[0]] ?? '',
