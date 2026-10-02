@@ -199,7 +199,8 @@ class CargoDynamicTableFormat extends CargoDisplayFormat {
 				}
 
 				if ( in_array( $field, $detailsFields ) ) {
-					$detailsText = "\t\t\t\t" . Html::rawElement( 'td', $attribs, "<strong>$field: </strong>" );
+					$detailsText = "\t\t\t\t" . Html::rawElement( 'td', $attribs,
+						Html::element( 'strong', [], "$field: " ) );
 					$detailsText .= "\t\t\t\t" . Html::rawElement( 'td', $attribs, $value );
 					$details .= "\t\t\t" . Html::rawElement( 'tr', $attribs, $detailsText );
 				} else {

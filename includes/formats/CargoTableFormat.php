@@ -93,7 +93,7 @@ class CargoTableFormat extends CargoDisplayFormat {
 				// We add a class to enable special CSS and/or
 				// JS handling.
 				$className = 'field_' . str_replace( ' ', '_', $field );
-				$text .= Html::rawElement( 'th', [ 'class' => $className ], $field ) . "\n";
+				$text .= Html::element( 'th', [ 'class' => $className ], $field ) . "\n";
 			}
 		}
 		$text .= "</tr></thead>\n<tbody>";
