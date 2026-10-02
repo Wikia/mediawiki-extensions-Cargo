@@ -158,7 +158,7 @@ class CargoExhibitFormat extends CargoDeferredFormat {
 			if ( $field != "label" && strpos( $field, '__' ) === false &&
 			strpos( $field, '  ' ) === false ) {
 				$th = Html::element( 'strong', [], ucfirst( $field ) );
-				$lensBody = Html::rawElement(
+				$lensBody .= Html::rawElement(
 					'tr',
 					[
 						'data-ex-if-exists' => ".$field",
