@@ -11,6 +11,7 @@
  */
 
 use MediaWiki\Html\Html;
+use Mediawiki\Parser\Sanitizer;
 use MediaWiki\Title\Title;
 use Wikimedia\Rdbms\FakeResultWrapper;
 use Wikimedia\Rdbms\IDatabase;
@@ -1229,6 +1230,7 @@ END;
 						[ 'format' => $this->format, 'formatBy' => $this->formatBy ] );
 				}
 				array_splice( $temp_filters_array[$i]->values, $j, 0, $removed_values );
+                $filter_text = Sanitizer::removeSomeTags( html_entity_decode( $filter_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' ) );
 				$appliedFiltersHTML .= "\n\t" . "<span class=\"drilldown-header-value\">" .
 					$filter_text . '</span> <a href="' . $remove_filter_url . '" title="' .
 					$this->msg( 'cargo-drilldown-removefilter' )->escaped() . '"><img src="' .
